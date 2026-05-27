@@ -16,7 +16,7 @@ in `spec/<phase-name>-spec.md` and is shippable on its own.
 
 ## v0.1 — Foundation: working slideshow on Synology
 
-**Status:** Code complete — deployment pending
+**Status:** Shipped
 **Specs:**
 - [`v0.1-foundation-spec.md`](v0.1-foundation-spec.md) — app build
 - [`v0.1-deploy-spec.md`](v0.1-deploy-spec.md) — GHCR + Dockhand on Synology
