@@ -11,8 +11,10 @@ build/
 # TypeScript build cache
 *.tsbuildinfo
 
-# Runtime data (photos, sqlite db, uploads)
-data/
+# Runtime data — ignore files but keep the placeholder directory structure
+data/**
+!data/**/
+!data/**/.gitkeep
 
 # Environment files
 .env
