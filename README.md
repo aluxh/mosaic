@@ -8,9 +8,8 @@ Designed to run on a Synology NAS via Docker.
 
 ## Status
 
-**v0.1 — Foundation** is in progress. See [`spec/roadmap.md`](spec/roadmap.md)
-for the phase plan and [`spec/v0.1-foundation-spec.md`](spec/v0.1-foundation-spec.md)
-for the current spec.
+**v0.1 — Foundation** is shipped. The roadmap and feature specs live in a
+private sibling repo (`aluxh/mosaic-specs`).
 
 ## Ground rules
 
@@ -23,7 +22,6 @@ spec-driven, TDD, simplicity-first, surgical changes. Read it before contributin
 web/        # React + Vite frontend (TypeScript, Tailwind, Framer Motion)
 api/        # Fastify backend (TypeScript, better-sqlite3, sharp)
 data/       # runtime data — SQLite db + photos (gitignored, mounted into Docker)
-spec/       # roadmap + per-feature specs
 ```
 
 ## Local development

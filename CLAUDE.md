@@ -5,11 +5,13 @@ behavior. Read them at the start of every session.
 
 ## 1. Spec-Driven Development — NO code without a spec
 
-- The high-level roadmap lives at `/spec/roadmap.md`. Update it when a phase
-  ships or scope shifts.
-- Every feature gets its own `/spec/<feature-name>-spec.md` BEFORE any
-  implementation. The spec lists: context, goals, non-goals, user stories,
-  data model changes (if any), tests, acceptance criteria, open questions.
+- The high-level roadmap and all feature specs live in the private sibling
+  repo `aluxh/mosaic-specs`, cloned locally at `../mosaic-specs/`.
+  Update `roadmap.md` there when a phase ships or scope shifts.
+- Every feature gets its own `<feature-name>-spec.md` in `../mosaic-specs/`
+  BEFORE any implementation. The spec lists: context, goals, non-goals,
+  user stories, data model changes (if any), tests, acceptance criteria,
+  open questions.
 - If you're about to write code and there is no spec for what you're
   building, STOP. Write the spec first, get user approval, then implement.
 
