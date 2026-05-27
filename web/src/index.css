@@ -1,0 +1,350 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Celebration */
+  --c-bg: oklch(0.962 0.022 72);
+  --c-bg-deep: oklch(0.928 0.030 68);
+  --c-ink: oklch(0.235 0.052 28);
+  --c-ink-soft: oklch(0.42 0.045 30);
+  --c-accent: oklch(0.62 0.155 38);
+  --c-gold: oklch(0.78 0.105 82);
+  --c-line: oklch(0.82 0.040 60);
+
+  /* Remembrance */
+  --r-bg: oklch(0.948 0.006 250);
+  --r-bg-deep: oklch(0.905 0.010 248);
+  --r-ink: oklch(0.26 0.022 250);
+  --r-ink-soft: oklch(0.45 0.018 250);
+  --r-accent: oklch(0.55 0.038 152);
+  --r-gold: oklch(0.72 0.060 85);
+  --r-line: oklch(0.84 0.012 250);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.serif {
+  font-family: 'Instrument Serif', 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.serif-italic {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* mode-driven palette via class on app root */
+.mode-celebration {
+  --bg: var(--c-bg);
+  --bg-deep: var(--c-bg-deep);
+  --ink: var(--c-ink);
+  --ink-soft: var(--c-ink-soft);
+  --accent: var(--c-accent);
+  --gold: var(--c-gold);
+  --line: var(--c-line);
+}
+
+.mode-remembrance {
+  --bg: var(--r-bg);
+  --bg-deep: var(--r-bg-deep);
+  --ink: var(--r-ink);
+  --ink-soft: var(--r-ink-soft);
+  --accent: var(--r-accent);
+  --gold: var(--r-gold);
+  --line: var(--r-line);
+}
+
+.bg-app {
+  background: var(--bg);
+}
+.bg-deep {
+  background: var(--bg-deep);
+}
+.text-ink {
+  color: var(--ink);
+}
+.text-ink-soft {
+  color: var(--ink-soft);
+}
+.text-accent {
+  color: var(--accent);
+}
+.text-gold {
+  color: var(--gold);
+}
+.border-line {
+  border-color: var(--line);
+}
+.bg-ink {
+  background: var(--ink);
+}
+.bg-accent {
+  background: var(--accent);
+}
+
+/* paper grain */
+.paper {
+  position: relative;
+}
+.paper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.025) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+  opacity: 0.7;
+}
+
+/* Vignette */
+.vignette::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.35) 100%);
+  z-index: 2;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+input[type='file'] {
+  display: none;
+}
+
+@keyframes counterPop {
+  0% {
+    transform: translateY(-6px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+.counter-pop {
+  animation: counterPop 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Ken Burns */
+@keyframes kenA {
+  from {
+    transform: scale(1.04) translate(2.5%, 1.5%);
+  }
+  to {
+    transform: scale(1.16) translate(-2.5%, -1.5%);
+  }
+}
+@keyframes kenB {
+  from {
+    transform: scale(1.04) translate(-2.5%, 1.5%);
+  }
+  to {
+    transform: scale(1.16) translate(2.5%, -1.5%);
+  }
+}
+@keyframes kenC {
+  from {
+    transform: scale(1.04) translate(2%, -2%);
+  }
+  to {
+    transform: scale(1.18) translate(-2%, 2%);
+  }
+}
+@keyframes kenD {
+  from {
+    transform: scale(1.04) translate(-2%, -2%);
+  }
+  to {
+    transform: scale(1.18) translate(2%, 2%);
+  }
+}
+.ken-a {
+  animation: kenA var(--ken-ms, 7000ms) linear forwards;
+}
+.ken-b {
+  animation: kenB var(--ken-ms, 7000ms) linear forwards;
+}
+.ken-c {
+  animation: kenC var(--ken-ms, 7000ms) linear forwards;
+}
+.ken-d {
+  animation: kenD var(--ken-ms, 7000ms) linear forwards;
+}
+
+/* element entries */
+@keyframes fadeUp {
+  from {
+    transform: translateY(22px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fadeInScale {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes slideFromLeft {
+  from {
+    transform: translateX(-26px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slideFromRight {
+  from {
+    transform: translateX(26px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes slideFromBottom {
+  from {
+    transform: translateY(28px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes captionIn {
+  from {
+    transform: translateY(6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.anim-fade-up {
+  animation: fadeUp 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.anim-fade-in-scale {
+  animation: fadeInScale 800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.anim-from-left {
+  animation: slideFromLeft 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.anim-from-right {
+  animation: slideFromRight 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.anim-from-bottom {
+  animation: slideFromBottom 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.anim-caption {
+  animation: captionIn 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 250ms;
+}
+.anim-delay-1 {
+  animation-delay: 120ms;
+}
+.anim-delay-2 {
+  animation-delay: 240ms;
+}
+.anim-delay-3 {
+  animation-delay: 360ms;
+}
+.anim-delay-msg {
+  animation-delay: 350ms;
+}
+
+@keyframes polaroidIn {
+  from {
+    transform: var(--p-from);
+  }
+  to {
+    transform: var(--p-to);
+  }
+}
+.polaroid-in {
+  animation: polaroidIn 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+.progress-fill {
+  animation: progressFill var(--progress-ms, 4200ms) linear forwards;
+}
+.progress-fill.paused {
+  animation-play-state: paused;
+}
+
+@keyframes tickerIn {
+  from {
+    transform: translate(-50%, -12px) scale(0.96);
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+@keyframes tickerOut {
+  from {
+    transform: translate(-50%, 0) scale(1);
+  }
+  to {
+    transform: translate(-50%, -10px) scale(0.98);
+  }
+}
+.ticker-in {
+  animation: tickerIn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.ticker-out {
+  animation: tickerOut 360ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes sheetMount {
+  from {
+    transform: translateY(60px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-mount {
+  animation: sheetMount 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes iconPop {
+  from {
+    transform: scale(0.7);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+.icon-pop {
+  animation: iconPop 240ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

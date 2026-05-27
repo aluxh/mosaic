@@ -1,0 +1,22 @@
+FROM node:20-bookworm-slim
+WORKDIR /app
+
+# Native deps for better-sqlite3 + sharp ship as prebuilds for this base image,
+# so no system build tooling required.
+COPY tsconfig.base.json ./
+COPY api/package.json api/package-lock.json* ./api/
+RUN cd api && npm install --no-audit --no-fund --omit=dev
+COPY api ./api
+
+WORKDIR /app/api
+ENV NODE_ENV=production
+ENV DATA_DIR=/data
+ENV PORT=3000
+ENV HOST=0.0.0.0
+EXPOSE 3000
+
+# tsx is a devDependency; install it separately for the prod runtime.
+RUN npm install --no-audit --no-fund tsx@4.19.2
+
+HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["npx", "tsx", "src/server.ts"]

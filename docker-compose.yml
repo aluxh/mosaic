@@ -1,0 +1,38 @@
+# Mosaic v0.1 — runs on Synology via Container Manager.
+#
+# Bind mount the data folder somewhere you control. On Synology this is
+# typically /volume1/docker/mosaic/data. On a dev box, ./data is fine.
+#
+# After first boot, drop seed photos into:
+#   <data-dir>/seeds/celebration/
+#   <data-dir>/seeds/remembrance/
+# and restart the api container.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      PORT: "3000"
+      HOST: 0.0.0.0
+    volumes:
+      - ./data:/data
+    expose:
+      - "3000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+    volumes:
+      # Read-only access to the same data dir so nginx can serve photos
+      # without round-tripping through the API.
+      - ./data:/var/lib/mosaic-data:ro
