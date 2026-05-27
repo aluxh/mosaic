@@ -16,8 +16,10 @@ in `spec/<phase-name>-spec.md` and is shippable on its own.
 
 ## v0.1 — Foundation: working slideshow on Synology
 
-**Status:** In progress
-**Spec:** [`v0.1-foundation-spec.md`](v0.1-foundation-spec.md)
+**Status:** Code complete — deployment pending
+**Specs:**
+- [`v0.1-foundation-spec.md`](v0.1-foundation-spec.md) — app build
+- [`v0.1-deploy-spec.md`](v0.1-deploy-spec.md) — GHCR + Dockhand on Synology
 
 **Goal:** A guest opens the URL on their phone, sees the slideshow on the TV
 display, can upload a photo via the contribute sheet, and the photo appears

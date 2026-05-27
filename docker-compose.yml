@@ -13,6 +13,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    image: ghcr.io/aluxh/mosaic-api:dev
     restart: unless-stopped
     environment:
       DATA_DIR: /data
@@ -27,6 +28,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
+    image: ghcr.io/aluxh/mosaic-web:dev
     restart: unless-stopped
     depends_on:
       - api
