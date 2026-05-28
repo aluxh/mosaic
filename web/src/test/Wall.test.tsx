@@ -167,6 +167,26 @@ describe('WallHandle ref navigation', () => {
     expect(container.textContent).toContain('01 /');
   });
 
+  it('with a single-slide sequence, next() and prev() leave idx at 0', () => {
+    const ref = createRef<WallHandle>();
+    // 1 photo + null event = exactly 1 slide (hero only, no title card)
+    const { container } = render(
+      <Wall
+        ref={ref}
+        photos={[n1]}
+        messages={[]}
+        mode="remembrance"
+        paused={true}
+        event={null}
+      />,
+    );
+    expect(container.textContent).toContain('01 /');
+    act(() => { ref.current!.next(); });
+    expect(container.textContent).toContain('01 /');
+    act(() => { ref.current!.prev(); });
+    expect(container.textContent).toContain('01 /');
+  });
+
   it('prev() at last index goes to second-to-last', () => {
     const ref = createRef<WallHandle>();
     const { container } = render(

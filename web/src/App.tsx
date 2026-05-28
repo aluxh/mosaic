@@ -28,6 +28,8 @@ export function App() {
   const [tickerEntry, setTickerEntry] = useState<TickerEntry | null>(null);
   const chromeAwake = useIdleChrome();
   const wallRef = useRef<WallHandle>(null);
+  const onPrev = () => wallRef.current?.prev();
+  const onNext = () => wallRef.current?.next();
 
   const event = useMemo(() => events[0] ?? null, [events]);
 
@@ -52,8 +54,8 @@ export function App() {
     onTogglePause: () => setPaused((p) => !p),
     onOpenContribute: () => setContributeOpen(true),
     onCloseContribute: () => setContributeOpen(false),
-    onPrev: () => wallRef.current?.prev(),
-    onNext: () => wallRef.current?.next(),
+    onPrev,
+    onNext,
   });
 
   const photos = event ? (photosByEvent[event.id] ?? []) : [];
@@ -204,9 +206,9 @@ export function App() {
       </button>
 
       <div className="fixed right-7 bottom-20 z-30 flex items-center gap-3" style={chromeStyle}>
-        <NavButton direction="prev" onClick={() => wallRef.current?.prev()} hidden={navHidden} />
+        <NavButton direction="prev" onClick={onPrev} hidden={navHidden} />
         <PauseButton paused={paused} onToggle={() => setPaused((p) => !p)} />
-        <NavButton direction="next" onClick={() => wallRef.current?.next()} hidden={navHidden} />
+        <NavButton direction="next" onClick={onNext} hidden={navHidden} />
       </div>
 
       <ContributeSheet

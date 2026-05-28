@@ -17,8 +17,10 @@ export function useKeyboardShortcuts(handlers: Handlers) {
         e.preventDefault();
         handlers.onTogglePause();
       } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
         handlers.onPrev();
       } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
         handlers.onNext();
       } else if (e.key === 'c' || e.key === 'C') {
         handlers.onOpenContribute();

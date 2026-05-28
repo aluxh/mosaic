@@ -20,7 +20,7 @@ interface WallProps {
   messages: Message[];
   mode: Mode;
   paused: boolean;
-  event: Event;
+  event: Event | null;
 }
 
 function SlideContent({
