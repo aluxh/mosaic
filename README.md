@@ -32,6 +32,22 @@ npm run dev             # starts Vite (5173) + Fastify (3000) concurrently
 npm test                # runs both test suites
 ```
 
+## Operator shortcuts
+
+These work on any keyboard connected to the TV (or via SSH with the browser open):
+
+| Key | Action |
+|---|---|
+| `Space` | Pause / resume auto-advance |
+| `ArrowLeft` | Jump to previous slide (wraps) |
+| `ArrowRight` | Jump to next slide (wraps) |
+| `c` | Open "Add to the wall" contribute sheet |
+| `Escape` | Close contribute sheet |
+
+On-screen: move the mouse to reveal `[‹] [pause] [›]` buttons at the bottom-right.
+The nav buttons are hidden during unattended playback and fade in on mouse activity
+or when the wall is paused.
+
 ## Deploying to Synology
 
 Pre-built images are published to GHCR on every version tag. No build
