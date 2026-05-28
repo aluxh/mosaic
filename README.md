@@ -66,6 +66,28 @@ Drop seed photos into `seeds/celebration/` (or `seeds/remembrance/`).
    containers.
 7. The slideshow is reachable at `http://<nas-ip>:8080/`.
 
+#### Customize the event copy
+
+Without any extra config, the slideshow shows the built-in placeholder text
+("Theodore James Halloway" etc.). Set any of these env vars on the `api`
+container to override them — no code change or image rebuild needed:
+
+| Variable | What it changes |
+|---|---|
+| `EVENT_TITLE` | Name on the title card (e.g. `"Grace Mei Wong"`) |
+| `EVENT_EYEBROW` | Small label above the name (e.g. `"Celebrating the life of"`) |
+| `EVENT_DATELINE` | Dates below the name (e.g. `"1925 — 2026"`) |
+| `EVENT_PLACE` | Venue / context line on the title card |
+| `EVENT_INVITATION` | Invitation text at the bottom of the title card |
+| `EVENT_BRAND_SUB` | Subtitle under "Mosaic" in the top-left chrome (e.g. `"In remembrance · Grace"`) |
+| `EVENT_SHORT_CODE` | Short code shown on the contribute button (e.g. `"GM26"`) |
+
+Unset or empty vars fall back to the seed values — nothing breaks if you
+leave them out. All commented-out examples are in `docker-compose.prod.yml`.
+
+Redeploying with new values updates the event row in the database automatically
+(the boot path upserts on every start).
+
 For HTTPS, add a reverse proxy rule in DSM Control Panel → Login Portal →
 Reverse Proxy: source `your-event.yourdomain.com:443` (HTTPS, Let's Encrypt) →
 destination `localhost:8080` (HTTP).

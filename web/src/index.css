@@ -103,9 +103,6 @@ body {
 }
 
 /* paper grain */
-.paper {
-  position: relative;
-}
 .paper::after {
   content: '';
   position: absolute;

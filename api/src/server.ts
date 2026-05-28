@@ -6,7 +6,7 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { openDatabase } from './db/index.js';
 import { migrate } from './db/migrate.js';
-import { SEED_EVENTS, resolveEventMode } from './lib/seedEvents.js';
+import { SEED_EVENTS, resolveEventMode, applyEventOverrides } from './lib/seedEvents.js';
 import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { makeStoragePaths } from './lib/storage.js';
@@ -27,7 +27,7 @@ async function main() {
   const db = openDatabase(paths.dbFile);
   migrate(db);
   const mode = resolveEventMode();
-  const event = SEED_EVENTS[mode];
+  const event = applyEventOverrides(SEED_EVENTS[mode]);
   upsertEvent(db, event);
   fs.mkdirSync(path.join(paths.seedsDir, event.id), { recursive: true });
   fs.mkdirSync(path.join(paths.uploadsDir, event.id), { recursive: true });

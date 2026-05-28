@@ -23,6 +23,15 @@ services:
       PORT: "3000"
       HOST: 0.0.0.0
       EVENT_MODE: celebration   # change to remembrance for a memorial
+      # Optional: override the event copy without rebuilding the image.
+      # Leave any line commented out to keep the built-in seed value.
+      # EVENT_TITLE: "Grace Mei Wong"           # name on the title card
+      # EVENT_EYEBROW: "In loving memory of"    # small label above the name
+      # EVENT_DATELINE: "1925 — 2026"           # dates below the name
+      # EVENT_PLACE: "Hong Kong, 1925"          # venue / context line
+      # EVENT_INVITATION: "Share a memory."     # invitation text on title card
+      # EVENT_BRAND_SUB: "In remembrance · Grace"  # subtitle under "Mosaic" in chrome
+      # EVENT_SHORT_CODE: "GM26"                # short code shown on the contribute button
     volumes:
       - /volume1/docker/mosaic/data:/data
     expose:

@@ -37,3 +37,21 @@ export const SEED_EVENTS: Record<Mode, EventRow> = {
     short_code: '4F8K',
   },
 };
+
+const env = (key: string): string | undefined => {
+  const v = process.env[key];
+  return v && v.length > 0 ? v : undefined;
+};
+
+export function applyEventOverrides(seed: EventRow): EventRow {
+  return {
+    ...seed,
+    ...(env('EVENT_TITLE') !== undefined && { title: env('EVENT_TITLE')! }),
+    ...(env('EVENT_EYEBROW') !== undefined && { eyebrow: env('EVENT_EYEBROW')! }),
+    ...(env('EVENT_DATELINE') !== undefined && { dateline: env('EVENT_DATELINE')! }),
+    ...(env('EVENT_PLACE') !== undefined && { place: env('EVENT_PLACE')! }),
+    ...(env('EVENT_INVITATION') !== undefined && { invitation: env('EVENT_INVITATION')! }),
+    ...(env('EVENT_BRAND_SUB') !== undefined && { brand_sub: env('EVENT_BRAND_SUB')! }),
+    ...(env('EVENT_SHORT_CODE') !== undefined && { short_code: env('EVENT_SHORT_CODE')! }),
+  };
+}

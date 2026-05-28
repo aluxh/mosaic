@@ -17,6 +17,13 @@ services:
       PORT: "3000"
       HOST: 0.0.0.0
       EVENT_MODE: ${EVENT_MODE:-celebration}
+      EVENT_TITLE: ${EVENT_TITLE:-}
+      EVENT_EYEBROW: ${EVENT_EYEBROW:-}
+      EVENT_DATELINE: ${EVENT_DATELINE:-}
+      EVENT_PLACE: ${EVENT_PLACE:-}
+      EVENT_INVITATION: ${EVENT_INVITATION:-}
+      EVENT_BRAND_SUB: ${EVENT_BRAND_SUB:-}
+      EVENT_SHORT_CODE: ${EVENT_SHORT_CODE:-}
     volumes:
       - ./data:/data
     expose:
