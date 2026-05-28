@@ -40,17 +40,17 @@ const seedMessage: Message = {
   createdAt: 0,
 };
 
-const p1: Photo = {
-  id: 'p1',
+const n1: Photo = {
+  id: 'n1',
   eventId: 'remembrance',
   source: 'seed',
   url: '/p1.jpg',
   credit: '',
   createdAt: 0,
 };
-const p2: Photo = { ...p1, id: 'p2', url: '/p2.jpg' };
-const p3: Photo = { ...p1, id: 'p3', url: '/p3.jpg' };
-const navPhotos = [p1, p2, p3];
+const n2: Photo = { ...n1, id: 'n2', url: '/p2.jpg' };
+const n3: Photo = { ...n1, id: 'n3', url: '/p3.jpg' };
+const navPhotos = [n1, n2, n3];
 
 describe('paper slide CSS regression', () => {
   it('.paper rule does not override position to relative', () => {
