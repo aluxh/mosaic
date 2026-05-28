@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 interface Handlers {
   onTogglePause: () => void;
-  onToggleMode: () => void;
   onOpenContribute: () => void;
   onCloseContribute: () => void;
 }
@@ -15,8 +14,6 @@ export function useKeyboardShortcuts(handlers: Handlers) {
       if (e.code === 'Space') {
         e.preventDefault();
         handlers.onTogglePause();
-      } else if (e.key === 'm' || e.key === 'M') {
-        handlers.onToggleMode();
       } else if (e.key === 'c' || e.key === 'C') {
         handlers.onOpenContribute();
       } else if (e.key === 'Escape') {

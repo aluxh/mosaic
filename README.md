@@ -37,27 +37,48 @@ npm test                # runs both test suites
 Pre-built images are published to GHCR on every version tag. No build
 step needed on the NAS.
 
+**One deployment = one event.** Each event (wedding, memorial, etc.) gets
+its own Docker stack and its own data folder. To host two events
+simultaneously, deploy two stacks.
+
 ### One-time NAS bootstrap (SSH in once)
 
+Choose your event mode — `celebration` or `remembrance` — then create its
+data folder:
+
 ```bash
-sudo mkdir -p /volume1/docker/mosaic/data/seeds/{remembrance,celebration}
-sudo mkdir -p /volume1/docker/mosaic/data/uploads/{remembrance,celebration}
+# Replace "mosaic" with your event name and "celebration" with your mode.
+sudo mkdir -p /volume1/docker/mosaic/data/seeds/celebration
+sudo mkdir -p /volume1/docker/mosaic/data/uploads/celebration
 ```
 
-Drop seed photos into `seeds/remembrance/` or `seeds/celebration/`.
+Drop seed photos into `seeds/celebration/` (or `seeds/remembrance/`).
 
 ### Deploy via Dockhand
 
 1. Open Dockhand in your browser.
-2. Create a new Stack named `mosaic`.
+2. Create a new Stack named after your event (e.g. `mosaic`, `graduation2026`).
 3. Paste the contents of `docker-compose.prod.yml` into the compose editor.
-4. Click **Deploy** — Dockhand pulls the images from GHCR and starts both
+4. **Set `EVENT_MODE`** in the compose editor to `celebration` or `remembrance`.
+5. Update the bind-mount path to match your data folder
+   (e.g. `/volume1/docker/graduation2026/data:/data`).
+6. Click **Deploy** — Dockhand pulls the images from GHCR and starts both
    containers.
-5. The slideshow is reachable at `http://<nas-ip>:8080/`.
+7. The slideshow is reachable at `http://<nas-ip>:8080/`.
 
 For HTTPS, add a reverse proxy rule in DSM Control Panel → Login Portal →
-Reverse Proxy: source `mosaic.yourdomain.com:443` (HTTPS, Let's Encrypt) →
+Reverse Proxy: source `your-event.yourdomain.com:443` (HTTPS, Let's Encrypt) →
 destination `localhost:8080` (HTTP).
+
+### Deploying another event
+
+Copy `docker-compose.prod.yml` into a new Dockhand stack. Change:
+- `EVENT_MODE` — to the new event's mode
+- The bind-mount path — to a new data folder, e.g. `/volume1/docker/belovedgm/data`
+- The host port — to avoid conflict, e.g. `8081:80`
+
+Point a second subdomain or custom domain at the new port via DSM reverse proxy.
+Each event has its own database and photos — they are fully independent.
 
 ### Releasing a new version
 

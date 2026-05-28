@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Wall } from './components/Wall';
 import { Counter } from './components/Counter';
-import { ModeToggle } from './components/ModeToggle';
 import { PauseButton } from './components/PauseButton';
 import { ContributeSheet, type ContributeSubmission } from './components/ContributeSheet';
 import { JustAddedTicker, type TickerEntry } from './components/JustAddedTicker';
@@ -15,7 +14,7 @@ import {
   postMessage,
   uploadPhoto,
 } from './lib/api';
-import type { Event, Message, Mode, Photo } from './types';
+import type { Event, Message, Photo } from './types';
 
 const POLL_MS = 10_000;
 
@@ -23,13 +22,12 @@ export function App() {
   const [events, setEvents] = useState<Event[]>([]);
   const [photosByEvent, setPhotosByEvent] = useState<Record<string, Photo[]>>({});
   const [messagesByEvent, setMessagesByEvent] = useState<Record<string, Message[]>>({});
-  const [mode, setMode] = useState<Mode>('remembrance');
   const [paused, setPaused] = useState(false);
   const [contributeOpen, setContributeOpen] = useState(false);
   const [tickerEntry, setTickerEntry] = useState<TickerEntry | null>(null);
   const chromeAwake = useIdleChrome();
 
-  const event = useMemo(() => events.find((e) => e.mode === mode) ?? null, [events, mode]);
+  const event = useMemo(() => events[0] ?? null, [events]);
 
   useEffect(() => {
     fetchEvents().then(setEvents).catch(console.error);
@@ -50,7 +48,6 @@ export function App() {
 
   useKeyboardShortcuts({
     onTogglePause: () => setPaused((p) => !p),
-    onToggleMode: () => setMode((m) => (m === 'celebration' ? 'remembrance' : 'celebration')),
     onOpenContribute: () => setContributeOpen(true),
     onCloseContribute: () => setContributeOpen(false),
   });
@@ -107,6 +104,8 @@ export function App() {
       </div>
     );
   }
+
+  const mode = event.mode;
 
   return (
     <div className={`fixed inset-0 ${mode === 'celebration' ? 'mode-celebration' : 'mode-remembrance'}`}>
@@ -199,7 +198,6 @@ export function App() {
       </button>
 
       <div className="fixed right-7 bottom-20 z-30 flex items-center gap-3" style={chromeStyle}>
-        <ModeToggle mode={mode} onChange={setMode} />
         <PauseButton paused={paused} onToggle={() => setPaused((p) => !p)} />
       </div>
 

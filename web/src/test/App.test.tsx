@@ -16,15 +16,8 @@ const remembranceEvent: Event = {
   shortCode: '4F8K',
 };
 
-const celebrationEvent: Event = {
-  ...remembranceEvent,
-  id: 'celebration',
-  mode: 'celebration',
-  brandSub: 'Lina & Marco',
-};
-
 beforeEach(() => {
-  vi.spyOn(api, 'fetchEvents').mockResolvedValue([celebrationEvent, remembranceEvent]);
+  vi.spyOn(api, 'fetchEvents').mockResolvedValue([remembranceEvent]);
   vi.spyOn(api, 'fetchPhotos').mockResolvedValue([]);
   vi.spyOn(api, 'fetchMessages').mockResolvedValue([]);
 });
@@ -36,15 +29,6 @@ async function renderApp() {
 }
 
 describe('App keyboard shortcuts', () => {
-  it('toggles mode with "m"', async () => {
-    await renderApp();
-    expect(screen.getByText('In remembrance · Theodore')).toBeInTheDocument();
-    act(() => {
-      fireEvent.keyDown(window, { key: 'm' });
-    });
-    await waitFor(() => expect(screen.getByText('Lina & Marco')).toBeInTheDocument());
-  });
-
   it('opens the contribute sheet with "c"', async () => {
     await renderApp();
     expect(screen.queryByText(/leave a remembrance/i)).not.toBeInTheDocument();
@@ -83,7 +67,28 @@ describe('App keyboard shortcuts', () => {
     });
     const input = screen.getByPlaceholderText(/e\.g\. eleanor/i);
     input.focus();
-    fireEvent.keyDown(input, { key: 'm', target: input });
+    fireEvent.keyDown(input, { key: 'Escape', target: input });
+    expect(screen.getByText(/leave a remembrance/i)).toBeInTheDocument();
+  });
+
+  it('pressing m does nothing', async () => {
+    await renderApp();
     expect(screen.getByText('In remembrance · Theodore')).toBeInTheDocument();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'm' });
+    });
+    expect(screen.getByText('In remembrance · Theodore')).toBeInTheDocument();
+  });
+});
+
+describe('App renders event theme', () => {
+  it('renders the event brand sub from the loaded event', async () => {
+    await renderApp();
+    expect(screen.getByText('In remembrance · Theodore')).toBeInTheDocument();
+  });
+
+  it('does not render a mode toggle', async () => {
+    await renderApp();
+    expect(screen.queryByRole('button', { name: /celebration|remembrance/i })).not.toBeInTheDocument();
   });
 });

@@ -1,11 +1,8 @@
-# Mosaic v0.1 — runs on Synology via Container Manager.
-#
-# Bind mount the data folder somewhere you control. On Synology this is
-# typically /volume1/docker/mosaic/data. On a dev box, ./data is fine.
+# Mosaic — local dev compose. Set EVENT_MODE below or via shell:
+#   EVENT_MODE=remembrance docker compose up
 #
 # After first boot, drop seed photos into:
-#   <data-dir>/seeds/celebration/
-#   <data-dir>/seeds/remembrance/
+#   <data-dir>/seeds/<EVENT_MODE>/
 # and restart the api container.
 
 services:
@@ -19,6 +16,7 @@ services:
       DATA_DIR: /data
       PORT: "3000"
       HOST: 0.0.0.0
+      EVENT_MODE: ${EVENT_MODE:-celebration}
     volumes:
       - ./data:/data
     expose:

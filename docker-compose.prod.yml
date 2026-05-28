@@ -3,6 +3,13 @@
 # Pulls pre-built images from GHCR; no local build required.
 # Paste this file into Dockhand's stack editor and deploy.
 #
+# BEFORE DEPLOYING: set EVENT_MODE below to match your event type.
+#   celebration  — weddings, graduations, birthdays
+#   remembrance  — memorials, funerals
+#
+# Each event should have its own stack with its own data path:
+#   /volume1/docker/<event-name>/data
+#
 # SECRETS POLICY: all secrets (admin password, HMAC keys, etc. — none in v0.1)
 # MUST be passed via environment: variables here. Never bake secrets into the
 # image or commit a .env file to the repo.
@@ -15,6 +22,7 @@ services:
       DATA_DIR: /data
       PORT: "3000"
       HOST: 0.0.0.0
+      EVENT_MODE: celebration   # change to remembrance for a memorial
     volumes:
       - /volume1/docker/mosaic/data:/data
     expose:

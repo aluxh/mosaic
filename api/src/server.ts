@@ -6,9 +6,9 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { openDatabase } from './db/index.js';
 import { migrate } from './db/migrate.js';
-import { SEED_EVENTS } from './lib/seedEvents.js';
+import { SEED_EVENTS, resolveEventMode } from './lib/seedEvents.js';
 import { upsertEvent } from './db/queries.js';
-import { indexAllSeeds } from './lib/seedIndex.js';
+import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
@@ -26,11 +26,12 @@ async function main() {
 
   const db = openDatabase(paths.dbFile);
   migrate(db);
-  for (const e of SEED_EVENTS) {
-    upsertEvent(db, e);
-    fs.mkdirSync(path.join(paths.seedsDir, e.id), { recursive: true });
-  }
-  indexAllSeeds(db, paths);
+  const mode = resolveEventMode();
+  const event = SEED_EVENTS[mode];
+  upsertEvent(db, event);
+  fs.mkdirSync(path.join(paths.seedsDir, event.id), { recursive: true });
+  fs.mkdirSync(path.join(paths.uploadsDir, event.id), { recursive: true });
+  indexSeedsForEvent(db, paths, event.id);
 
   const app = Fastify({ logger: { level: 'info' } });
   await app.register(cors, { origin: true });
