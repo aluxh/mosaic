@@ -34,5 +34,8 @@ npm-debug.log*
 # Claude Code session data
 .claude/
 
+# Playwright MCP session captures
+.playwright-mcp/
+
 # Test coverage
 coverage/
