@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import * as api from '../lib/api';
 import { App } from '../App';
-import type { Event } from '../types';
+import type { Event, Photo } from '../types';
 
 const remembranceEvent: Event = {
   id: 'remembrance',
@@ -90,5 +90,56 @@ describe('App renders event theme', () => {
   it('does not render a mode toggle', async () => {
     await renderApp();
     expect(screen.queryByRole('button', { name: /celebration|remembrance/i })).not.toBeInTheDocument();
+  });
+});
+
+const navPhotos: Photo[] = [
+  { id: 'n1', eventId: 'remembrance', source: 'seed', url: '/n1.jpg', credit: '', createdAt: 0 },
+  { id: 'n2', eventId: 'remembrance', source: 'seed', url: '/n2.jpg', credit: '', createdAt: 0 },
+  { id: 'n3', eventId: 'remembrance', source: 'seed', url: '/n3.jpg', credit: '', createdAt: 0 },
+];
+
+describe('App arrow key navigation', () => {
+  beforeEach(() => {
+    vi.spyOn(api, 'fetchPhotos').mockResolvedValue(navPhotos);
+  });
+
+  it('ArrowRight advances the slide index', async () => {
+    const { container } = await renderApp();
+    expect(container.textContent).toContain('01 /');
+    act(() => {
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+    });
+    expect(container.textContent).toContain('02 /');
+  });
+
+  it('ArrowLeft from slide 0 wraps to the last slide', async () => {
+    const { container } = await renderApp();
+    expect(container.textContent).toContain('01 /');
+    act(() => {
+      fireEvent.keyDown(window, { key: 'ArrowLeft' });
+    });
+    expect(container.textContent).not.toContain('01 /');
+  });
+
+  it('ArrowRight does not toggle paused', async () => {
+    await renderApp();
+    expect(screen.getByLabelText('Pause')).toBeInTheDocument();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'ArrowRight' });
+    });
+    expect(screen.getByLabelText('Pause')).toBeInTheDocument();
+  });
+
+  it('ArrowRight ignored when an input is focused', async () => {
+    const { container } = await renderApp();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'c' });
+    });
+    const input = screen.getByPlaceholderText(/e\.g\. eleanor/i);
+    input.focus();
+    const textBefore = container.textContent;
+    fireEvent.keyDown(input, { key: 'ArrowRight', target: input });
+    expect(container.textContent).toBe(textBefore);
   });
 });

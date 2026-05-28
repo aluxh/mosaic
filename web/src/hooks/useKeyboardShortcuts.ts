@@ -4,6 +4,8 @@ interface Handlers {
   onTogglePause: () => void;
   onOpenContribute: () => void;
   onCloseContribute: () => void;
+  onPrev: () => void;
+  onNext: () => void;
 }
 
 export function useKeyboardShortcuts(handlers: Handlers) {
@@ -14,6 +16,10 @@ export function useKeyboardShortcuts(handlers: Handlers) {
       if (e.code === 'Space') {
         e.preventDefault();
         handlers.onTogglePause();
+      } else if (e.key === 'ArrowLeft') {
+        handlers.onPrev();
+      } else if (e.key === 'ArrowRight') {
+        handlers.onNext();
       } else if (e.key === 'c' || e.key === 'C') {
         handlers.onOpenContribute();
       } else if (e.key === 'Escape') {

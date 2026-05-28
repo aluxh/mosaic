@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Wall } from './components/Wall';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Wall, type WallHandle } from './components/Wall';
 import { Counter } from './components/Counter';
 import { PauseButton } from './components/PauseButton';
+import { NavButton } from './components/NavButton';
 import { ContributeSheet, type ContributeSubmission } from './components/ContributeSheet';
 import { JustAddedTicker, type TickerEntry } from './components/JustAddedTicker';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -26,6 +27,7 @@ export function App() {
   const [contributeOpen, setContributeOpen] = useState(false);
   const [tickerEntry, setTickerEntry] = useState<TickerEntry | null>(null);
   const chromeAwake = useIdleChrome();
+  const wallRef = useRef<WallHandle>(null);
 
   const event = useMemo(() => events[0] ?? null, [events]);
 
@@ -50,6 +52,8 @@ export function App() {
     onTogglePause: () => setPaused((p) => !p),
     onOpenContribute: () => setContributeOpen(true),
     onCloseContribute: () => setContributeOpen(false),
+    onPrev: () => wallRef.current?.prev(),
+    onNext: () => wallRef.current?.next(),
   });
 
   const photos = event ? (photosByEvent[event.id] ?? []) : [];
@@ -86,6 +90,8 @@ export function App() {
     }, 4500);
   };
 
+  const navHidden = !paused && !chromeAwake;
+
   const chromeStyle: React.CSSProperties = {
     transition:
       'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1), transform 450ms cubic-bezier(0.22, 1, 0.36, 1)',
@@ -109,7 +115,7 @@ export function App() {
 
   return (
     <div className={`fixed inset-0 ${mode === 'celebration' ? 'mode-celebration' : 'mode-remembrance'}`}>
-      <Wall photos={photos} messages={messages} mode={mode} paused={paused} event={event} />
+      <Wall ref={wallRef} photos={photos} messages={messages} mode={mode} paused={paused} event={event} />
 
       <div
         className="fixed inset-x-0 top-0 z-20 pointer-events-none"
@@ -198,7 +204,9 @@ export function App() {
       </button>
 
       <div className="fixed right-7 bottom-20 z-30 flex items-center gap-3" style={chromeStyle}>
+        <NavButton direction="prev" onClick={() => wallRef.current?.prev()} hidden={navHidden} />
         <PauseButton paused={paused} onToggle={() => setPaused((p) => !p)} />
+        <NavButton direction="next" onClick={() => wallRef.current?.next()} hidden={navHidden} />
       </div>
 
       <ContributeSheet
