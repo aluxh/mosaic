@@ -1,11 +1,15 @@
 import { describe, it, expect } from 'vitest';
+import { createRef, act } from 'react';
 import { render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { TitleCardSlide } from '../components/slides/TitleCardSlide';
 import { DuoSlide } from '../components/slides/DuoSlide';
 import { MessageSlide } from '../components/slides/MessageSlide';
+import { Wall } from '../components/Wall';
+import type { WallHandle } from '../components/Wall';
 import type { Event, Photo, Message } from '../types';
+import { buildSequence } from '../lib/buildSequence';
 
 const seedEvent: Event = {
   id: 'remembrance',
@@ -35,6 +39,18 @@ const seedMessage: Message = {
   text: 'We will remember.',
   createdAt: 0,
 };
+
+const p1: Photo = {
+  id: 'p1',
+  eventId: 'remembrance',
+  source: 'seed',
+  url: '/p1.jpg',
+  credit: '',
+  createdAt: 0,
+};
+const p2: Photo = { ...p1, id: 'p2', url: '/p2.jpg' };
+const p3: Photo = { ...p1, id: 'p3', url: '/p3.jpg' };
+const navPhotos = [p1, p2, p3];
 
 describe('paper slide CSS regression', () => {
   it('.paper rule does not override position to relative', () => {
@@ -79,5 +95,100 @@ describe('paper slide CSS regression', () => {
     const root = container.firstElementChild as HTMLElement;
     expect(root.classList.contains('absolute')).toBe(true);
     expect(root.classList.contains('relative')).toBe(false);
+  });
+});
+
+describe('WallHandle ref navigation', () => {
+  it('next() advances to the next slide', () => {
+    const ref = createRef<WallHandle>();
+    const { container } = render(
+      <Wall
+        ref={ref}
+        photos={navPhotos}
+        messages={[]}
+        mode="remembrance"
+        paused={true}
+        event={seedEvent}
+      />,
+    );
+    expect(container.textContent).toContain('01 /');
+    act(() => {
+      ref.current!.next();
+    });
+    expect(container.textContent).toContain('02 /');
+  });
+
+  it('prev() goes back, and prev() at idx 0 wraps to last', () => {
+    const ref = createRef<WallHandle>();
+    const { container } = render(
+      <Wall
+        ref={ref}
+        photos={navPhotos}
+        messages={[]}
+        mode="remembrance"
+        paused={true}
+        event={seedEvent}
+      />,
+    );
+    expect(container.textContent).toContain('01 /');
+    act(() => {
+      ref.current!.prev();
+    });
+    // Wrapped to last — no longer at 01
+    expect(container.textContent).not.toContain('01 /');
+  });
+
+  it('next() at the last index wraps to index 0', () => {
+    const ref = createRef<WallHandle>();
+    const { container } = render(
+      <Wall
+        ref={ref}
+        photos={navPhotos}
+        messages={[]}
+        mode="remembrance"
+        paused={true}
+        event={seedEvent}
+      />,
+    );
+    const total = buildSequence(navPhotos, [], 'remembrance', seedEvent).length;
+    // Advance to last slide
+    for (let i = 0; i < total - 1; i++) {
+      act(() => {
+        ref.current!.next();
+      });
+    }
+    expect(container.textContent).toContain(
+      `${String(total).padStart(2, '0')} /`,
+    );
+    // Wrap
+    act(() => {
+      ref.current!.next();
+    });
+    expect(container.textContent).toContain('01 /');
+  });
+
+  it('prev() at last index goes to second-to-last', () => {
+    const ref = createRef<WallHandle>();
+    const { container } = render(
+      <Wall
+        ref={ref}
+        photos={navPhotos}
+        messages={[]}
+        mode="remembrance"
+        paused={true}
+        event={seedEvent}
+      />,
+    );
+    const total = buildSequence(navPhotos, [], 'remembrance', seedEvent).length;
+    // Go to last slide
+    for (let i = 0; i < total - 1; i++) {
+      act(() => { ref.current!.next(); });
+    }
+    const lastLabel = `${String(total).padStart(2, '0')} /`;
+    expect(container.textContent).toContain(lastLabel);
+    // Prev from last
+    act(() => { ref.current!.prev(); });
+    const penultLabel = `${String(total - 1).padStart(2, '0')} /`;
+    expect(container.textContent).toContain(penultLabel);
   });
 });

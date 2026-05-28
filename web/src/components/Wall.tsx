@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import type { Event, Message, Mode, Photo, SlideSpec } from '../types';
 import { buildSequence } from '../lib/buildSequence';
 import { TitleCardSlide } from './slides/TitleCardSlide';
@@ -9,6 +9,11 @@ import { TriptychSlide } from './slides/TriptychSlide';
 import { PolaroidSlide } from './slides/PolaroidSlide';
 import { MessageSlide } from './slides/MessageSlide';
 import { ProgressBar } from './ProgressBar';
+
+export interface WallHandle {
+  prev(): void;
+  next(): void;
+}
 
 interface WallProps {
   photos: Photo[];
@@ -77,7 +82,10 @@ function SlideWrapper({
   );
 }
 
-export function Wall({ photos, messages, mode, paused, event }: WallProps) {
+export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
+  { photos, messages, mode, paused, event }: WallProps,
+  ref,
+) {
   const sequence = useMemo(
     () => buildSequence(photos, messages, mode, event),
     [photos, messages, mode, event],
@@ -101,6 +109,21 @@ export function Wall({ photos, messages, mode, paused, event }: WallProps) {
   useEffect(() => {
     if (idx >= sequence.length) setIdx(0);
   }, [sequence.length, idx]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      prev() {
+        if (sequence.length === 0) return;
+        setIdx((i) => (i - 1 + sequence.length) % sequence.length);
+      },
+      next() {
+        if (sequence.length === 0) return;
+        setIdx((i) => (i + 1) % sequence.length);
+      },
+    }),
+    [sequence.length],
+  );
 
   const [prevSlide, setPrevSlide] = useState<SlideSpec | null>(null);
   const lastSlideRef = useRef<SlideSpec | null>(null);
@@ -146,4 +169,4 @@ export function Wall({ photos, messages, mode, paused, event }: WallProps) {
       />
     </div>
   );
-}
+});
