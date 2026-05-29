@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import sharp from 'sharp';
 import { openDatabase, type DB } from '../src/db/index.js';
 import { applySchemaFromString } from '../src/db/migrate.js';
 import { upsertEvent, listPhotos } from '../src/db/queries.js';
@@ -12,6 +13,17 @@ const SCHEMA = fs.readFileSync(
   path.resolve(__dirname, '..', 'migrations', '001_init.sql'),
   'utf8',
 );
+
+let validJpeg: Buffer;
+let validPng: Buffer;
+let validWebp: Buffer;
+
+beforeAll(async () => {
+  const tiny = { width: 1, height: 1, channels: 3 as const, background: 'red' };
+  validJpeg = await sharp({ create: tiny }).jpeg({ quality: 60 }).toBuffer();
+  validPng  = await sharp({ create: tiny }).png().toBuffer();
+  validWebp = await sharp({ create: tiny }).webp({ quality: 60 }).toBuffer();
+});
 
 let tmpDir: string;
 let paths: StoragePaths;
@@ -42,42 +54,102 @@ afterEach(() => {
 });
 
 describe('indexSeedsForEvent', () => {
-  it('returns 0 when seeds folder is empty/missing', () => {
-    expect(indexSeedsForEvent(db, paths, 'remembrance')).toEqual({ inserted: 0, skipped: 0 });
+  it('returns 0 when seeds folder is empty/missing', async () => {
+    expect(await indexSeedsForEvent(db, paths, 'remembrance')).toEqual({
+      inserted: 0,
+      skipped: 0,
+      skipped_reasons: [],
+    });
   });
 
-  it('indexes jpg/jpeg/png/webp files and skips others', () => {
+  it('indexes valid jpg/png/webp, skips non-image extensions', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });
-    for (const name of ['a.jpg', 'b.jpeg', 'c.png', 'd.webp', 'e.txt', 'f.gif']) {
-      fs.writeFileSync(path.join(dir, name), 'x');
-    }
-    const result = indexSeedsForEvent(db, paths, 'remembrance');
-    expect(result.inserted).toBe(4);
-    const rows = listPhotos(db, 'remembrance');
-    const filenames = rows.map((r) => r.filename).sort();
-    expect(filenames).toEqual(['a.jpg', 'b.jpeg', 'c.png', 'd.webp']);
+    fs.writeFileSync(path.join(dir, 'a.jpg'), validJpeg);
+    fs.writeFileSync(path.join(dir, 'b.png'), validPng);
+    fs.writeFileSync(path.join(dir, 'c.webp'), validWebp);
+    fs.writeFileSync(path.join(dir, 'd.txt'), 'text');
+    fs.writeFileSync(path.join(dir, 'e.gif'), 'gif');
+
+    const result = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(result.inserted).toBe(3);
+    expect(result.skipped_reasons).toHaveLength(0);
+    const filenames = listPhotos(db, 'remembrance').map((r) => r.filename).sort();
+    expect(filenames).toEqual(['a.jpg', 'b.png', 'c.webp']);
   });
 
-  it('is idempotent — second run inserts nothing new', () => {
+  it('is idempotent — second run inserts nothing new', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'a.jpg'), 'x');
-    fs.writeFileSync(path.join(dir, 'b.jpg'), 'x');
+    fs.writeFileSync(path.join(dir, 'a.jpg'), validJpeg);
+    fs.writeFileSync(path.join(dir, 'b.jpg'), validJpeg);
 
-    expect(indexSeedsForEvent(db, paths, 'remembrance')).toEqual({ inserted: 2, skipped: 0 });
-    expect(indexSeedsForEvent(db, paths, 'remembrance')).toEqual({ inserted: 0, skipped: 2 });
+    expect(await indexSeedsForEvent(db, paths, 'remembrance')).toMatchObject({ inserted: 2, skipped: 0 });
+    expect(await indexSeedsForEvent(db, paths, 'remembrance')).toMatchObject({ inserted: 0, skipped: 2 });
     expect(listPhotos(db, 'remembrance')).toHaveLength(2);
   });
 
-  it('records seed photos with source=seed and credit=Host', () => {
+  it('records seed photos with source=seed and credit=Host', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'photo.jpg'), 'x');
-    indexSeedsForEvent(db, paths, 'remembrance');
+    fs.writeFileSync(path.join(dir, 'photo.jpg'), validJpeg);
+    await indexSeedsForEvent(db, paths, 'remembrance');
     const [row] = listPhotos(db, 'remembrance');
     expect(row?.source).toBe('seed');
     expect(row?.credit).toBe('Host');
     expect(row?.id).toContain('seed-');
+  });
+
+  it('strips EXIF from seed JPEG and rewrites the file', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    const jpegWithExif = await sharp({
+      create: { width: 50, height: 100, channels: 3 as const, background: 'green' },
+    })
+      .withMetadata({ orientation: 6 })
+      .jpeg({ quality: 60 })
+      .toBuffer();
+    const filePath = path.join(dir, 'portrait.jpg');
+    fs.writeFileSync(filePath, jpegWithExif);
+
+    await indexSeedsForEvent(db, paths, 'remembrance');
+
+    const onDisk = fs.readFileSync(filePath);
+    const meta = await sharp(onDisk).metadata();
+    expect(meta.exif).toBeUndefined();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(50);
+  });
+
+  it('does not re-read or rewrite already-indexed seeds on second boot', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    const filePath = path.join(dir, 'a.jpg');
+    fs.writeFileSync(filePath, validJpeg);
+
+    await indexSeedsForEvent(db, paths, 'remembrance');
+    const mtimeAfterFirst = fs.statSync(filePath).mtimeMs;
+
+    await indexSeedsForEvent(db, paths, 'remembrance');
+    const mtimeAfterSecond = fs.statSync(filePath).mtimeMs;
+
+    expect(mtimeAfterSecond).toBe(mtimeAfterFirst);
+    expect(listPhotos(db, 'remembrance')).toHaveLength(1);
+  });
+
+  it('skips invalid seed file, reports reason, still indexes valid sibling', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'bad.jpg'), Buffer.from('not an image'));
+    fs.writeFileSync(path.join(dir, 'good.jpg'), validJpeg);
+
+    const result = await indexSeedsForEvent(db, paths, 'remembrance');
+
+    expect(result.inserted).toBe(1);
+    expect(result.skipped_reasons).toHaveLength(1);
+    expect(result.skipped_reasons[0]!.filename).toBe('bad.jpg');
+    expect(result.skipped_reasons[0]!.reason).toBeTruthy();
+    expect(listPhotos(db, 'remembrance')).toHaveLength(1);
+    expect(listPhotos(db, 'remembrance')[0]!.filename).toBe('good.jpg');
   });
 });

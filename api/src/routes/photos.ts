@@ -5,15 +5,7 @@ import type { DB } from '../db/index.js';
 import { getEvent, insertPhoto } from '../db/queries.js';
 import { newId } from '../lib/ids.js';
 import { publicUrlForPhoto, uploadsDirFor, type StoragePaths } from '../lib/storage.js';
-
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-const EXT_BY_MIME: Record<string, string> = {
-  'image/jpeg': '.jpg',
-  'image/png': '.png',
-  'image/webp': '.webp',
-  'image/heic': '.heic',
-};
+import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
 
 export function registerPhotoRoutes(
   app: FastifyInstance,
@@ -28,16 +20,13 @@ export function registerPhotoRoutes(
 
       const parts = req.parts();
       let fileBuf: Buffer | null = null;
-      let mime = '';
-      let originalName = '';
       let credit = '';
 
       for await (const part of parts) {
         if (part.type === 'file' && part.fieldname === 'file') {
-          mime = part.mimetype;
-          originalName = part.filename ?? '';
-          fileBuf = await part.toBuffer();
-          if (fileBuf.byteLength > MAX_FILE_BYTES) {
+          try {
+            fileBuf = await part.toBuffer();
+          } catch {
             return reply.code(413).send({ error: 'file too large (max 10MB)' });
           }
         } else if (part.type === 'field' && part.fieldname === 'credit') {
@@ -46,16 +35,17 @@ export function registerPhotoRoutes(
       }
 
       if (!fileBuf) return reply.code(400).send({ error: 'file is required' });
-      const ext = EXT_BY_MIME[mime] ?? path.extname(originalName).toLowerCase() ?? '.jpg';
-      if (!['.jpg', '.jpeg', '.png', '.webp'].includes(ext)) {
-        return reply.code(415).send({ error: 'unsupported image type' });
+
+      const result = await ingestImage(fileBuf, MAX_FILE_BYTES);
+      if (!result.ok) {
+        return reply.code(result.code).send({ error: result.error });
       }
 
       const id = newId();
-      const filename = `${id}${ext === '.jpeg' ? '.jpg' : ext}`;
+      const filename = `${id}${result.ext}`;
       const dir = uploadsDirFor(paths, req.params.id);
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, filename), fileBuf);
+      fs.writeFileSync(path.join(dir, filename), result.buf);
 
       const row = insertPhoto(db, {
         id,

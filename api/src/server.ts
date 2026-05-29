@@ -31,7 +31,10 @@ async function main() {
   upsertEvent(db, event);
   fs.mkdirSync(path.join(paths.seedsDir, event.id), { recursive: true });
   fs.mkdirSync(path.join(paths.uploadsDir, event.id), { recursive: true });
-  indexSeedsForEvent(db, paths, event.id);
+  const seedResult = await indexSeedsForEvent(db, paths, event.id);
+  for (const { filename, reason } of seedResult.skipped_reasons) {
+    console.warn(`[seed] skipped ${filename}: ${reason}`);
+  }
 
   const app = Fastify({ logger: { level: 'info' } });
   await app.register(cors, { origin: true });

@@ -91,7 +91,10 @@ export async function uploadPhoto(
     method: 'POST',
     body: fd,
   });
-  if (!res.ok) throw new Error(`upload -> ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(body.error ?? 'Upload failed');
+  }
   return toPhoto((await res.json()) as ApiPhoto);
 }
 

@@ -89,4 +89,54 @@ describe('ContributeSheet', () => {
     });
     expect(URL.createObjectURL).toHaveBeenCalledWith(file);
   });
+
+  it('renders server error on 413 response', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('file too large (max 10MB)'));
+    render(
+      <ContributeSheet open={true} mode="remembrance" onClose={() => {}} onSubmit={onSubmit} />,
+    );
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+    await user.click(screen.getByRole('button', { name: /add to the remembrance/i }));
+    await waitFor(() =>
+      expect(screen.getByText('file too large (max 10MB)')).toBeInTheDocument(),
+    );
+  });
+
+  it('renders server error on 415 response', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(
+      new Error('unsupported image type — JPEG, PNG, or WebP only'),
+    );
+    render(
+      <ContributeSheet open={true} mode="remembrance" onClose={() => {}} onSubmit={onSubmit} />,
+    );
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+    await user.click(screen.getByRole('button', { name: /add to the remembrance/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText('unsupported image type — JPEG, PNG, or WebP only'),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('clears error when a new file is picked', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('file too large (max 10MB)'));
+    render(
+      <ContributeSheet open={true} mode="remembrance" onClose={() => {}} onSubmit={onSubmit} />,
+    );
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+    await user.click(screen.getByRole('button', { name: /add to the remembrance/i }));
+    await waitFor(() =>
+      expect(screen.getByText('file too large (max 10MB)')).toBeInTheDocument(),
+    );
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p2.jpg', { type: 'image/jpeg' })] } });
+    await waitFor(() =>
+      expect(screen.queryByText('file too large (max 10MB)')).not.toBeInTheDocument(),
+    );
+  });
 });

@@ -22,6 +22,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -34,6 +35,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
       setPreview(null);
       setSuccess(false);
       setSubmitting(false);
+      setError(null);
     }, 500);
     return () => clearTimeout(t);
   }, [open]);
@@ -44,6 +46,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
     if (!f) return;
     setFile(f);
     setPreview(URL.createObjectURL(f));
+    setError(null);
   };
 
   const onDrop: React.DragEventHandler<HTMLDivElement> = (e) => {
@@ -56,6 +59,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
 
   const submit = async () => {
     if (!canSubmit) return;
+    setError(null);
     setSubmitting(true);
     try {
       await onSubmit({
@@ -67,6 +71,8 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
       setSuccess(true);
       await new Promise((r) => setTimeout(r, 1100));
       onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setSubmitting(false);
     }
@@ -240,6 +246,12 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
                     : 'Add to the remembrance'}
             </span>
           </button>
+
+          {error && (
+            <p className="upload-error mono text-[0.65rem] tracking-[0.18em] text-center text-ink-soft">
+              {error}
+            </p>
+          )}
 
           <div className="text-center mono text-[0.6rem] tracking-[0.2em] uppercase text-ink-soft">
             Visible on the main display moments after you share
