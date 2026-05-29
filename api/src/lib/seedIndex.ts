@@ -43,6 +43,7 @@ export async function indexSeedsForEvent(
     const result = await ingestImage(buf, MAX_FILE_BYTES);
 
     if (!result.ok) {
+      skipped += 1;
       skipped_reasons.push({ filename, reason: result.error });
       continue;
     }
