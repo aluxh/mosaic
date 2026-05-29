@@ -92,8 +92,8 @@ describe('GET /api/events/:id/photos', () => {
   it('returns seed photos with resolved URLs', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'one.jpg'), 'x');
-    indexSeedsForEvent(db, paths, 'remembrance');
+    fs.writeFileSync(path.join(dir, 'one.jpg'), minimalPng);
+    await indexSeedsForEvent(db, paths, 'remembrance');
     const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
     expect(res.statusCode).toBe(200);
     const body = res.json() as Array<{ url: string; source: string }>;

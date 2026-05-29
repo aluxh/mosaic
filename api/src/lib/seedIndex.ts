@@ -3,22 +3,24 @@ import path from 'node:path';
 import type { DB } from '../db/index.js';
 import { insertPhoto, listEvents, photoExists } from '../db/queries.js';
 import { seedsDirFor, type StoragePaths } from './storage.js';
+import { ingestImage, MAX_FILE_BYTES } from './imageIngest.js';
 
 const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 export interface IndexResult {
   inserted: number;
   skipped: number;
+  skipped_reasons: { filename: string; reason: string }[];
 }
 
-export function indexSeedsForEvent(
+export async function indexSeedsForEvent(
   db: DB,
   paths: StoragePaths,
   eventId: string,
   now: () => number = Date.now,
-): IndexResult {
+): Promise<IndexResult> {
   const dir = seedsDirFor(paths, eventId);
-  if (!fs.existsSync(dir)) return { inserted: 0, skipped: 0 };
+  if (!fs.existsSync(dir)) return { inserted: 0, skipped: 0, skipped_reasons: [] };
 
   const files = fs
     .readdirSync(dir)
@@ -27,12 +29,28 @@ export function indexSeedsForEvent(
 
   let inserted = 0;
   let skipped = 0;
+  const skipped_reasons: { filename: string; reason: string }[] = [];
+
   for (const filename of files) {
     const id = `seed-${eventId}-${filename}`;
     if (photoExists(db, id)) {
       skipped += 1;
       continue;
     }
+
+    const file = path.join(dir, filename);
+    const buf = fs.readFileSync(file);
+    const result = await ingestImage(buf, MAX_FILE_BYTES);
+
+    if (!result.ok) {
+      skipped_reasons.push({ filename, reason: result.error });
+      continue;
+    }
+
+    if (!result.buf.equals(buf)) {
+      fs.writeFileSync(file, result.buf);
+    }
+
     insertPhoto(db, {
       id,
       event_id: eventId,
@@ -43,17 +61,18 @@ export function indexSeedsForEvent(
     });
     inserted += 1;
   }
-  return { inserted, skipped };
+
+  return { inserted, skipped, skipped_reasons };
 }
 
-export function indexAllSeeds(
+export async function indexAllSeeds(
   db: DB,
   paths: StoragePaths,
   now: () => number = Date.now,
-): Record<string, IndexResult> {
+): Promise<Record<string, IndexResult>> {
   const out: Record<string, IndexResult> = {};
   for (const e of listEvents(db)) {
-    out[e.id] = indexSeedsForEvent(db, paths, e.id, now);
+    out[e.id] = await indexSeedsForEvent(db, paths, e.id, now);
   }
   return out;
 }
