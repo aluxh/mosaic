@@ -133,6 +133,46 @@ After the first push, go to <https://github.com/users/aluxh/packages> and set
 both `mosaic-api` and `mosaic-web` packages to **Public** and link them to
 this repository.
 
+### Capability tokens (v0.3+)
+
+Both write endpoints (`POST .../photos`, `POST .../messages`) require a
+signed token. Reads (the slideshow, the TV display) stay public and need no
+token. Scanning the event's QR poster is the only way to get a working
+token; the bare URL is read-only.
+
+1. **Set a signing secret.** Generate a long random string and set it as
+   `TOKEN_SECRET` on the `api` service in your compose file:
+
+   ```bash
+   openssl rand -hex 32
+   ```
+
+   The API refuses to boot if `TOKEN_SECRET` is empty — there is no
+   accidentally-open mode.
+
+2. **Mint a token + QR URL.** After deploying with the secret set:
+
+   ```bash
+   docker compose exec api npm run mint-token -- https://your-event-host
+   ```
+
+   This prints the token, its expiry date, and the ready-to-paste URL of the
+   form `https://your-event-host/#t=<token>`. The token defaults to a 14-day
+   validity window; override with `TOKEN_TTL_DAYS`.
+
+3. **Encode the printed URL into the QR poster.** Guests who scan it land in
+   the app with a working token; their uploads and notes are accepted.
+
+4. **Extend the window:** re-run `mint-token` for a fresh token with a later
+   expiry and reprint the QR. Old tokens remain valid until their own expiry.
+
+5. **Kill switch:** change `TOKEN_SECRET` and redeploy — every outstanding
+   token is invalidated immediately. Mint a new one to resume.
+
+> **Upgrading a live event is a breaking, one-time step.** Turning
+> enforcement on invalidates every existing QR poster (old URLs carry no
+> token). Set `TOKEN_SECRET` → `mint-token` → reprint the QR.
+
 ### Secrets policy
 
 All secrets — admin password, HMAC signing keys, JWT secrets (none in v0.1;

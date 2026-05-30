@@ -23,6 +23,11 @@ services:
       PORT: "3000"
       HOST: 0.0.0.0
       EVENT_MODE: celebration   # change to remembrance for a memorial
+      # REQUIRED (v0.3+): HMAC signing key for upload tokens. The API will
+      # NOT boot if this is empty. Generate with: openssl rand -hex 32
+      # Rotating this value invalidates every outstanding QR token at once.
+      TOKEN_SECRET: ""
+      # TOKEN_TTL_DAYS: "14"   # validity window for newly minted tokens
       # Optional: override the event copy without rebuilding the image.
       # Leave any line commented out to keep the built-in seed value.
       # EVENT_TITLE: "Grace Mei Wong"           # name on the title card
