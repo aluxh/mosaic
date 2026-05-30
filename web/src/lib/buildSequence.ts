@@ -42,20 +42,61 @@ export function buildSequence(
   const pattern = mode === 'celebration' ? CELEBRATION_PATTERN : REMEMBRANCE_PATTERN;
   const seq: SlideSpec[] = [];
 
+  const photoIds = new Set(photos.map((p) => p.id));
+  const msgByPhoto = new Map<string, Message>();
+  const standalone: Message[] = [];
+  for (const m of messages) {
+    if (m.photoId && photoIds.has(m.photoId)) msgByPhoto.set(m.photoId, m);
+    else standalone.push(m);
+  }
+  const paired = photos.filter((p) => msgByPhoto.has(p.id));
+  const plain = photos.filter((p) => !msgByPhoto.has(p.id));
+
   if (event) {
     seq.push({ id: 'title-0', type: 'title-card', event });
   }
 
-  const targetPhotos = photos.length;
-  const targetMsgs = messages.length;
-  let pi = 0;
-  let mi = 0;
+  let pairedI = 0;
+  let plainI = 0;
+  let standI = 0;
+  let pairedUsed = 0;
+  let plainUsed = 0;
+  let standUsed = 0;
   let ti = 0;
-  let photosUsed = 0;
-  let msgsUsed = 0;
   let safety = 0;
 
-  while ((photosUsed < targetPhotos || msgsUsed < targetMsgs) && safety < MAX_ITERATIONS) {
+  const nextPaired = (): Photo => {
+    const p = paired[pairedI % paired.length]!;
+    pairedI += 1;
+    if (pairedUsed < paired.length) pairedUsed += 1;
+    return p;
+  };
+  const nextPlain = (): Photo => {
+    const p = plain[plainI % plain.length]!;
+    plainI += 1;
+    if (plainUsed < plain.length) plainUsed += 1;
+    return p;
+  };
+  const nextStandalone = (): Message => {
+    const m = standalone[standI % standalone.length]!;
+    standI += 1;
+    if (standUsed < standalone.length) standUsed += 1;
+    return m;
+  };
+
+  const emitSingle = (photo: Photo): void => {
+    const msg = msgByPhoto.get(photo.id);
+    if (msg) {
+      seq.push({ id: `s${ti}-${photo.id}-msg`, type: 'hero-msg', photos: [photo], message: msg });
+    } else {
+      seq.push({ id: `s${ti}-${photo.id}`, type: 'hero', photos: [photo] });
+    }
+  };
+
+  const done = (): boolean =>
+    pairedUsed >= paired.length && plainUsed >= plain.length && standUsed >= standalone.length;
+
+  while (!done() && safety < MAX_ITERATIONS) {
     safety += 1;
 
     if (event && ti > 0 && ti % pattern.length === 0) {
@@ -63,66 +104,56 @@ export function buildSequence(
     }
 
     const token = pattern[ti % pattern.length]!;
-    const p = (k: number): Photo => photos[(pi + k) % photos.length]!;
-    const m = (): Message | null => (messages.length > 0 ? messages[mi % messages.length]! : null);
 
     if (token === 'hero') {
-      seq.push({ id: `s${ti}-${p(0).id}`, type: 'hero', photos: [p(0)] });
-      pi += 1;
-      photosUsed += 1;
-    } else if (token === 'duo') {
-      seq.push({
-        id: `s${ti}-${p(0).id}-${p(1).id}`,
-        type: 'duo',
-        photos: [p(0), p(1)],
-      });
-      pi += 2;
-      photosUsed += 2;
-    } else if (token === 'triptych') {
-      seq.push({
-        id: `s${ti}-${p(0).id}-${p(1).id}-${p(2).id}`,
-        type: 'triptych',
-        photos: [p(0), p(1), p(2)],
-      });
-      pi += 3;
-      photosUsed += 3;
-    } else if (token === 'polaroid') {
-      seq.push({
-        id: `s${ti}-${p(0).id}-${p(1).id}-${p(2).id}-pol`,
-        type: 'polaroid',
-        photos: [p(0), p(1), p(2)],
-      });
-      pi += 3;
-      photosUsed += 3;
+      if (plain.length > 0) emitSingle(nextPlain());
+      else if (paired.length > 0) emitSingle(nextPaired());
     } else if (token === 'hero-msg') {
-      const msg = m();
-      seq.push({
-        id: `s${ti}-${p(0).id}-msg`,
-        type: 'hero-msg',
-        photos: [p(0)],
-        message: msg,
-      });
-      pi += 1;
-      photosUsed += 1;
-      if (msg) {
-        mi += 1;
-        msgsUsed += 1;
+      if (paired.length > 0) {
+        emitSingle(nextPaired());
+      } else if (plain.length > 0) {
+        const p = nextPlain();
+        seq.push({ id: `s${ti}-${p.id}-msg`, type: 'hero-msg', photos: [p], message: null });
+      }
+    } else if (token === 'duo') {
+      if (plain.length > 0) {
+        const a = nextPlain();
+        const b = nextPlain();
+        seq.push({ id: `s${ti}-${a.id}-${b.id}`, type: 'duo', photos: [a, b] });
+      } else if (paired.length > 0) {
+        emitSingle(nextPaired());
+      }
+    } else if (token === 'triptych') {
+      if (plain.length > 0) {
+        const a = nextPlain();
+        const b = nextPlain();
+        const c = nextPlain();
+        seq.push({ id: `s${ti}-${a.id}-${b.id}-${c.id}`, type: 'triptych', photos: [a, b, c] });
+      } else if (paired.length > 0) {
+        emitSingle(nextPaired());
+      }
+    } else if (token === 'polaroid') {
+      if (plain.length > 0) {
+        const a = nextPlain();
+        const b = nextPlain();
+        const c = nextPlain();
+        seq.push({
+          id: `s${ti}-${a.id}-${b.id}-${c.id}-pol`,
+          type: 'polaroid',
+          photos: [a, b, c],
+        });
+      } else if (paired.length > 0) {
+        emitSingle(nextPaired());
       }
     } else {
-      const msg = m();
-      if (msg) {
-        seq.push({
-          id: `s${ti}-msg-${msg.id}`,
-          type: 'message',
-          message: msg,
-          photo: p(0),
-        });
-        mi += 1;
-        msgsUsed += 1;
-      } else {
-        seq.push({ id: `s${ti}-${p(0).id}-fb`, type: 'hero', photos: [p(0)] });
-        pi += 1;
-        photosUsed += 1;
+      // 'message'
+      if (standalone.length > 0) {
+        const m = nextStandalone();
+        seq.push({ id: `s${ti}-msg-${m.id}`, type: 'message', message: m });
+      } else if (plain.length > 0) {
+        emitSingle(nextPlain());
+      } else if (paired.length > 0) {
+        emitSingle(nextPaired());
       }
     }
 

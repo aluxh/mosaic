@@ -33,6 +33,17 @@ const makeMessages = (n: number): Message[] =>
     name: `Friend ${i + 1}`,
     text: `Message ${i + 1}`,
     createdAt: 2000 + i,
+    photoId: null,
+  }));
+
+const makeLinkedMessages = (photos: Photo[]): Message[] =>
+  photos.map((p, i) => ({
+    id: `lm${i + 1}`,
+    eventId: 'celebration',
+    name: `Author ${i + 1}`,
+    text: `Linked ${i + 1}`,
+    createdAt: 3000 + i,
+    photoId: p.id,
   }));
 
 describe('buildSequence', () => {
@@ -97,5 +108,78 @@ describe('buildSequence', () => {
     if (heroMsg && heroMsg.type === 'hero-msg') {
       expect(heroMsg.message).toBeNull();
     }
+  });
+});
+
+describe('buildSequence — pairing', () => {
+  it('a linked message renders only with its own photo, as hero-msg', () => {
+    const photos = makePhotos(6);
+    const linked = makeLinkedMessages([photos[0]!]); // photoId === 'c1'
+    const seq = buildSequence(photos, linked, 'celebration', event);
+    const c1Slides = seq.filter(
+      (s) => 'photos' in s && s.photos.some((p) => p.id === 'c1'),
+    );
+    expect(c1Slides.length).toBeGreaterThan(0);
+    for (const s of c1Slides) {
+      expect(s.type).toBe('hero-msg');
+      expect((s as { message?: Message }).message?.id).toBe('lm1');
+    }
+    const carriers = seq.filter((s) => (s as { message?: Message }).message?.id === 'lm1');
+    for (const s of carriers) {
+      expect((s as { photos: Photo[] }).photos[0]!.id).toBe('c1');
+    }
+  });
+
+  it('a hero-msg slide never carries a foreign message', () => {
+    const photos = makePhotos(6);
+    const linked = makeLinkedMessages([photos[0]!, photos[1]!]);
+    const seq = buildSequence(photos, linked, 'celebration', event);
+    const owner = new Map(linked.map((m) => [m.photoId, m.id]));
+    for (const s of seq) {
+      if (s.type === 'hero-msg') {
+        const msg = (s as { message: Message | null }).message;
+        if (msg) expect(msg.id).toBe(owner.get((s as { photos: Photo[] }).photos[0]!.id));
+      }
+    }
+  });
+
+  it('standalone messages render as message slides with no photo', () => {
+    const seq = buildSequence(makePhotos(6), makeMessages(3), 'celebration', event);
+    const msgSlides = seq.filter((s) => s.type === 'message');
+    expect(msgSlides.length).toBeGreaterThan(0);
+    for (const s of msgSlides) expect('photo' in s).toBe(false);
+  });
+
+  it('paired photos never appear in duo/triptych/polaroid', () => {
+    const photos = makePhotos(8);
+    const linked = makeLinkedMessages([photos[0]!, photos[1]!]);
+    const seq = buildSequence(photos, linked, 'celebration', event);
+    const linkedIds = new Set(linked.map((m) => m.photoId));
+    for (const s of seq) {
+      if (s.type === 'duo' || s.type === 'triptych' || s.type === 'polaroid') {
+        for (const p of (s as { photos: Photo[] }).photos) {
+          expect(linkedIds.has(p.id)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('covers every photo and every standalone message', () => {
+    const photos = makePhotos(9);
+    const linked = makeLinkedMessages([photos[0]!, photos[1]!]);
+    const standalone = makeMessages(3);
+    const seq = buildSequence(photos, [...linked, ...standalone], 'celebration', event);
+    const shownPhotos = new Set<string>();
+    const shownMsgs = new Set<string>();
+    for (const s of seq) {
+      if ('photos' in s) s.photos.forEach((p) => shownPhotos.add(p.id));
+      if (s.type === 'message') shownMsgs.add((s as { message: Message }).message.id);
+      if (s.type === 'hero-msg') {
+        const m = (s as { message: Message | null }).message;
+        if (m) shownMsgs.add(m.id);
+      }
+    }
+    photos.forEach((p) => expect(shownPhotos.has(p.id)).toBe(true));
+    standalone.forEach((m) => expect(shownMsgs.has(m.id)).toBe(true));
   });
 });

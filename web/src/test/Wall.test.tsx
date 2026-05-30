@@ -38,6 +38,7 @@ const seedMessage: Message = {
   name: 'A friend',
   text: 'We will remember.',
   createdAt: 0,
+  photoId: null,
 };
 
 const n1: Photo = {
@@ -89,7 +90,6 @@ describe('paper slide CSS regression', () => {
       id: 's3',
       type: 'message' as const,
       message: seedMessage,
-      photo: seedPhoto,
     };
     const { container } = render(<MessageSlide slide={slide} mode="remembrance" />);
     const root = container.firstElementChild as HTMLElement;
