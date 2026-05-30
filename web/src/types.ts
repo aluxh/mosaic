@@ -27,6 +27,7 @@ export interface Message {
   name: string;
   text: string;
   createdAt: number;
+  photoId: string | null;
 }
 
 export type SlideSpec =
