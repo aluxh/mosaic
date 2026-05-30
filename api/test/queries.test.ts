@@ -12,10 +12,13 @@ import {
   listPhotos,
 } from '../src/db/queries.js';
 
-const SCHEMA = fs.readFileSync(
-  path.resolve(__dirname, '..', 'migrations', '001_init.sql'),
-  'utf8',
-);
+const migrationsDir = path.resolve(__dirname, '..', 'migrations');
+const SCHEMA = fs
+  .readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => fs.readFileSync(path.join(migrationsDir, f), 'utf8'))
+  .join('\n');
 
 let db: DB;
 
@@ -82,6 +85,39 @@ describe('messages queries', () => {
     });
     const rows = listMessages(db, 'remembrance');
     expect(rows.map((r) => r.id)).toEqual(['m1', 'm2']);
+  });
+
+  it('insertMessage persists a photo_id link', () => {
+    insertPhoto(db, {
+      id: 'p1',
+      event_id: 'remembrance',
+      source: 'upload',
+      filename: 'a.jpg',
+      credit: 'Maya',
+      created_at: 1,
+    });
+    insertMessage(db, {
+      id: 'msg-linked',
+      event_id: 'remembrance',
+      name: 'Maya',
+      text: 'With my photo',
+      created_at: 10,
+      photo_id: 'p1',
+    });
+    const row = listMessages(db, 'remembrance').find((r) => r.id === 'msg-linked');
+    expect(row?.photo_id).toBe('p1');
+  });
+
+  it('insertMessage defaults photo_id to null when omitted', () => {
+    insertMessage(db, {
+      id: 'msg-standalone',
+      event_id: 'remembrance',
+      name: 'Eleanor',
+      text: 'No photo',
+      created_at: 11,
+    });
+    const row = listMessages(db, 'remembrance').find((r) => r.id === 'msg-standalone');
+    expect(row?.photo_id).toBeNull();
   });
 });
 

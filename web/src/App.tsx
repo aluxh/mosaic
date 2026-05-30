@@ -65,13 +65,24 @@ export function App() {
     if (!event) return;
     let uploaded: Photo | null = null;
     if (s.file) {
-      uploaded = await uploadPhoto(event.id, s.file, s.name || undefined);
+      const { photo, message } = await uploadPhoto(
+        event.id,
+        s.file,
+        s.name || undefined,
+        s.message || undefined,
+      );
+      uploaded = photo;
       setPhotosByEvent((prev) => ({
         ...prev,
-        [event.id]: [...(prev[event.id] ?? []), uploaded!],
+        [event.id]: [...(prev[event.id] ?? []), photo],
       }));
-    }
-    if (s.message) {
+      if (message) {
+        setMessagesByEvent((prev) => ({
+          ...prev,
+          [event.id]: [...(prev[event.id] ?? []), message],
+        }));
+      }
+    } else if (s.message) {
       const m = await postMessage(event.id, {
         name: s.name || undefined,
         text: s.message,

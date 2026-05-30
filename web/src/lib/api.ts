@@ -27,6 +27,7 @@ interface ApiMessage {
   name: string;
   text: string;
   created_at: number;
+  photo_id: string | null;
 }
 
 const toEvent = (e: ApiEvent): Event => ({
@@ -56,6 +57,7 @@ const toMessage = (m: ApiMessage): Message => ({
   name: m.name,
   text: m.text,
   createdAt: m.created_at,
+  photoId: m.photo_id,
 });
 
 async function getJson<T>(path: string): Promise<T> {
@@ -82,20 +84,26 @@ export async function fetchMessages(eventId: string): Promise<Message[]> {
 export async function uploadPhoto(
   eventId: string,
   file: File,
-  credit?: string,
-): Promise<Photo> {
+  name?: string,
+  message?: string,
+): Promise<{ photo: Photo; message: Message | null }> {
   const fd = new FormData();
   fd.append('file', file);
-  if (credit) fd.append('credit', credit);
+  if (name) fd.append('credit', name);
+  if (message) fd.append('message', message);
   const res = await fetch(`/api/events/${eventId}/photos`, {
     method: 'POST',
     body: fd,
   });
   if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { error?: string };
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(body.error ?? 'Upload failed');
   }
-  return toPhoto((await res.json()) as ApiPhoto);
+  const body = (await res.json()) as ApiPhoto & { message: ApiMessage | null };
+  return {
+    photo: toPhoto(body),
+    message: body.message ? toMessage(body.message) : null,
+  };
 }
 
 export async function postMessage(

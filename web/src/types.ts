@@ -27,6 +27,7 @@ export interface Message {
   name: string;
   text: string;
   createdAt: number;
+  photoId: string | null;
 }
 
 export type SlideSpec =
@@ -36,4 +37,4 @@ export type SlideSpec =
   | { id: string; type: 'duo'; photos: [Photo, Photo] }
   | { id: string; type: 'triptych'; photos: [Photo, Photo, Photo] }
   | { id: string; type: 'polaroid'; photos: [Photo, Photo, Photo] }
-  | { id: string; type: 'message'; message: Message; photo: Photo };
+  | { id: string; type: 'message'; message: Message };
