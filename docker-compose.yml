@@ -26,6 +26,11 @@ services:
       EVENT_SHORT_CODE: ${EVENT_SHORT_CODE:-}
       TOKEN_SECRET: ${TOKEN_SECRET:-}
       # TOKEN_TTL_DAYS: "14"   # validity window for newly minted tokens
+      # Optional: public origin of the app, e.g. https://your-event.example.com
+      # When set, the boot log prints the full QR URL (.../#t=<token>) ready to
+      # paste into a QR generator. When unset, the boot log prints token +
+      # expiry only and you append /#t=<token> to your event host yourself.
+      # BASE_URL: "https://your-event.example.com"
     volumes:
       - ./data:/data
     expose:

@@ -11,6 +11,7 @@ import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
+import { mintToken, formatBootToken } from './lib/token.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
@@ -58,6 +59,11 @@ async function main() {
 
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`Mosaic API listening on http://${HOST}:${PORT}, data=${paths.dataDir}`);
+
+  const baseUrl = process.env.BASE_URL;
+  const ttlDays = Number(process.env.TOKEN_TTL_DAYS) || 14;
+  const minted = mintToken({ secret: tokenSecret, eid: event.id, ttlDays, baseUrl });
+  for (const line of formatBootToken(minted, baseUrl)) console.log(line);
 }
 
 main().catch((err) => {
