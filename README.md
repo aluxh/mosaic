@@ -173,6 +173,24 @@ token; the bare URL is read-only.
 > enforcement on invalidates every existing QR poster (old URLs carry no
 > token). Set `TOKEN_SECRET` → `mint-token` → reprint the QR.
 
+### Getting the QR URL without SSH (boot log)
+
+On every boot the API also mints a token and prints it to stdout, so you can
+read it from your container log viewer (e.g. Dockhand) without SSH:
+
+```
+✓ Token minted
+  Token:   eyJlaWQiOiJyZW1lbWJyYW5jZSIsImV4cCI6...
+  Expires: 2026-06-13T10:00:00.000Z
+  URL:     https://your-event.example.com/#t=eyJ...
+```
+
+Set `BASE_URL` (the app's public origin) to get the ready-to-paste `URL:`
+line. Without it, the log prints the token + expiry only and you append
+`/#t=<token>` to your event host yourself. Each restart prints a fresh
+token; previously minted tokens (the QR poster, earlier boots) keep working
+until their own expiry.
+
 ### Secrets policy
 
 All secrets — admin password, HMAC signing keys, JWT secrets (none in v0.1;
