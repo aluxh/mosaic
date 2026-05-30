@@ -8,7 +8,7 @@ Designed to run on a Synology NAS via Docker.
 
 ## Status
 
-**v0.1 — Foundation** is shipped. The roadmap and feature specs live in a
+**v0.3 — Capability tokens** is the latest shipped release. The roadmap and feature specs live in a
 private sibling repo (`aluxh/mosaic-specs`).
 
 ## Ground rules
