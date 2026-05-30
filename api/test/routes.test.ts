@@ -237,4 +237,73 @@ describe('POST /api/events/:id/photos', () => {
     });
     expect(res.statusCode).toBe(400);
   });
+
+  function uploadWithFields(
+    buf: Buffer,
+    filename: string,
+    contentType: string,
+    fields: Record<string, string>,
+  ): ReturnType<typeof app.inject> {
+    const boundary = '----test-boundary';
+    const parts: Buffer[] = [
+      Buffer.from(`--${boundary}\r\n`),
+      Buffer.from(
+        `Content-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+      ),
+      buf,
+      Buffer.from('\r\n'),
+    ];
+    for (const [name, value] of Object.entries(fields)) {
+      parts.push(
+        Buffer.from(`--${boundary}\r\n`),
+        Buffer.from(`Content-Disposition: form-data; name="${name}"\r\n\r\n`),
+        Buffer.from(value),
+        Buffer.from('\r\n'),
+      );
+    }
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    return app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/photos',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: Buffer.concat(parts),
+    });
+  }
+
+  it('links a message when the message field is present', async () => {
+    const res = await uploadWithFields(minimalPng, 'p.png', 'image/png', {
+      credit: 'Maya',
+      message: 'Wishing you joy',
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as {
+      id: string;
+      message: { id: string; photo_id: string; text: string } | null;
+    };
+    expect(body.message).not.toBeNull();
+    expect(body.message?.photo_id).toBe(body.id);
+    expect(body.message?.text).toBe('Wishing you joy');
+
+    const list = await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' });
+    const msgs = list.json() as { photo_id: string | null }[];
+    expect(msgs.some((m) => m.photo_id === body.id)).toBe(true);
+  });
+
+  it('returns message: null when no message field is sent', async () => {
+    const res = await uploadWithFields(minimalPng, 'p.png', 'image/png', { credit: 'Maya' });
+    expect(res.statusCode).toBe(201);
+    expect((res.json() as { message: unknown }).message).toBeNull();
+  });
+
+  it('rejects an over-long message without writing the photo (atomic)', async () => {
+    const res = await uploadWithFields(minimalPng, 'p.png', 'image/png', {
+      credit: 'Maya',
+      message: 'x'.repeat(241),
+    });
+    expect(res.statusCode).toBe(400);
+    const photos = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect((photos.json() as unknown[]).length).toBe(0);
+    const msgs = await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' });
+    expect((msgs.json() as unknown[]).length).toBe(0);
+  });
 });
