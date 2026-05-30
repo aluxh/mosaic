@@ -14,10 +14,13 @@ import { registerPhotoRoutes } from '../src/routes/photos.js';
 import { makeStoragePaths, type StoragePaths } from '../src/lib/storage.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 
-const SCHEMA = fs.readFileSync(
-  path.resolve(__dirname, '..', 'migrations', '001_init.sql'),
-  'utf8',
-);
+const migrationsDir = path.resolve(__dirname, '..', 'migrations');
+const SCHEMA = fs
+  .readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => fs.readFileSync(path.join(migrationsDir, f), 'utf8'))
+  .join('\n');
 
 let tmpDir: string;
 let paths: StoragePaths;

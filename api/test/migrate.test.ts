@@ -13,6 +13,16 @@ describe('migrate', () => {
     db.close();
   });
 
+  it('adds messages.photo_id', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    const cols = (
+      db.prepare('PRAGMA table_info(messages)').all() as { name: string }[]
+    ).map((c) => c.name);
+    expect(cols).toContain('photo_id');
+    db.close();
+  });
+
   it('is idempotent across repeated runs', () => {
     const db = openDatabase(':memory:');
     migrate(db);
