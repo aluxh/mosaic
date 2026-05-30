@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signToken, verifyToken, type TokenPayload } from '../src/lib/token.js';
+import { signToken, verifyToken, mintToken, type TokenPayload } from '../src/lib/token.js';
 
 const SECRET = 'unit-test-secret';
 const futurePayload: TokenPayload = { eid: 'remembrance', exp: 4_102_444_800 }; // year 2100
@@ -77,5 +77,47 @@ describe('signToken / verifyToken', () => {
       ok: false,
       reason: 'bad_signature',
     });
+  });
+});
+
+describe('mintToken', () => {
+  const SECRET = 'unit-test-secret';
+
+  it('produces a token that verifies for its event', () => {
+    const nowMs = 1_700_000_000_000;
+    const r = mintToken({ secret: SECRET, eid: 'remembrance', ttlDays: 14, now: nowMs });
+    const result = verifyToken(r.token, SECRET, 'remembrance', Math.floor(nowMs / 1000));
+    expect(result.ok).toBe(true);
+  });
+
+  it('sets exp to floor(now/1000) + ttlDays*86400', () => {
+    const nowMs = 1_700_000_000_000;
+    const r = mintToken({ secret: SECRET, eid: 'remembrance', ttlDays: 14, now: nowMs });
+    const decoded = verifyToken(r.token, SECRET, 'remembrance', Math.floor(nowMs / 1000));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.payload.exp).toBe(Math.floor(nowMs / 1000) + 14 * 86400);
+  });
+
+  it('builds the QR url from baseUrl when provided', () => {
+    const r = mintToken({
+      secret: SECRET,
+      eid: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://event.example',
+      now: 1_700_000_000_000,
+    });
+    expect(r.url).toBe(`https://event.example/#t=${r.token}`);
+  });
+
+  it('uses a placeholder host when baseUrl is absent', () => {
+    const r = mintToken({ secret: SECRET, eid: 'remembrance', ttlDays: 14, now: 1_700_000_000_000 });
+    expect(r.url).toBe(`https://<your-event-host>/#t=${r.token}`);
+  });
+
+  it('returns an ISO-8601 expiresAt', () => {
+    const nowMs = 1_700_000_000_000;
+    const r = mintToken({ secret: SECRET, eid: 'remembrance', ttlDays: 1, now: nowMs });
+    expect(r.expiresAt).toBe(new Date((Math.floor(nowMs / 1000) + 86400) * 1000).toISOString());
   });
 });
