@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { DB } from '../db/index.js';
 import { getEvent, insertPhoto, insertMessage } from '../db/queries.js';
 import { newId } from '../lib/ids.js';
@@ -11,9 +11,11 @@ export function registerPhotoRoutes(
   app: FastifyInstance,
   db: DB,
   paths: StoragePaths,
+  requireToken: preHandlerHookHandler,
 ): void {
   app.post<{ Params: { id: string } }>(
     '/api/events/:id/photos',
+    { preHandler: requireToken },
     async (req, reply) => {
       const event = getEvent(db, req.params.id);
       if (!event) return reply.code(404).send({ error: 'event not found' });

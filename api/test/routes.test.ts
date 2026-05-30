@@ -13,6 +13,17 @@ import { registerMessageRoutes } from '../src/routes/messages.js';
 import { registerPhotoRoutes } from '../src/routes/photos.js';
 import { makeStoragePaths, type StoragePaths } from '../src/lib/storage.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
+import { makeRequireToken } from '../src/lib/auth.js';
+import { signToken } from '../src/lib/token.js';
+
+const TEST_SECRET = 'routes-test-secret';
+
+const validAuth = (eid = 'remembrance'): string =>
+  `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) + 3600 }, TEST_SECRET)}`;
+const expiredAuth = (eid = 'remembrance'): string =>
+  `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) - 10 }, TEST_SECRET)}`;
+const badSigAuth = (eid = 'remembrance'): string =>
+  `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) + 3600 }, 'wrong-secret')}`;
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
 const SCHEMA = fs
@@ -44,9 +55,10 @@ beforeAll(async () => {
 async function buildApp() {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  const requireToken = makeRequireToken(TEST_SECRET);
   registerEventRoutes(app, db);
-  registerMessageRoutes(app, db);
-  registerPhotoRoutes(app, db, paths);
+  registerMessageRoutes(app, db, requireToken);
+  registerPhotoRoutes(app, db, paths, requireToken);
   await app.ready();
 }
 
@@ -111,6 +123,7 @@ describe('POST /api/events/:id/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/events/remembrance/messages',
+      headers: { authorization: validAuth() },
       payload: { text: '   ' },
     });
     expect(res.statusCode).toBe(400);
@@ -120,6 +133,7 @@ describe('POST /api/events/:id/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/events/remembrance/messages',
+      headers: { authorization: validAuth() },
       payload: { text: 'x'.repeat(241) },
     });
     expect(res.statusCode).toBe(400);
@@ -129,6 +143,7 @@ describe('POST /api/events/:id/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/events/remembrance/messages',
+      headers: { authorization: validAuth() },
       payload: { name: '  Eleanor  ', text: 'A memory.' },
     });
     expect(res.statusCode).toBe(201);
@@ -147,6 +162,7 @@ describe('POST /api/events/:id/messages', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/events/remembrance/messages',
+      headers: { authorization: validAuth() },
       payload: { text: 'hi' },
     });
     expect(res.statusCode).toBe(201);
@@ -159,6 +175,7 @@ describe('POST /api/events/:id/photos', () => {
     buf: Buffer,
     filename: string,
     contentType: string,
+    authHeader: string | null = validAuth(),
   ): Promise<ReturnType<typeof app.inject>> {
     const boundary = '----test-boundary';
     const body = Buffer.concat([
@@ -172,7 +189,10 @@ describe('POST /api/events/:id/photos', () => {
     return app.inject({
       method: 'POST',
       url: '/api/events/remembrance/photos',
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
       payload: body,
     });
   }
@@ -232,18 +252,22 @@ describe('POST /api/events/:id/photos', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/events/remembrance/photos',
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        authorization: validAuth(),
+      },
       payload: body,
     });
     expect(res.statusCode).toBe(400);
   });
 
-  function uploadWithFields(
+  async function uploadWithFields(
     buf: Buffer,
     filename: string,
     contentType: string,
     fields: Record<string, string>,
-  ): ReturnType<typeof app.inject> {
+    authHeader: string | null = validAuth(),
+  ): Promise<ReturnType<typeof app.inject>> {
     const boundary = '----test-boundary';
     const parts: Buffer[] = [
       Buffer.from(`--${boundary}\r\n`),
@@ -262,10 +286,12 @@ describe('POST /api/events/:id/photos', () => {
       );
     }
     parts.push(Buffer.from(`--${boundary}--\r\n`));
+    const headers: Record<string, string> = { 'content-type': `multipart/form-data; boundary=${boundary}` };
+    if (authHeader) headers['authorization'] = authHeader;
     return app.inject({
       method: 'POST',
       url: '/api/events/remembrance/photos',
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      headers,
       payload: Buffer.concat(parts),
     });
   }
@@ -305,5 +331,85 @@ describe('POST /api/events/:id/photos', () => {
     expect((photos.json() as unknown[]).length).toBe(0);
     const msgs = await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' });
     expect((msgs.json() as unknown[]).length).toBe(0);
+  });
+});
+
+describe('write-endpoint token enforcement', () => {
+  const SCAN_MSG = "This link can't be used to upload — scan the QR code at the event.";
+  const EXPIRED_MSG = 'This event is no longer accepting uploads — ask the host for a new code.';
+
+  function postMessage(authHeader: string | null) {
+    return app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/messages',
+      headers: authHeader ? { authorization: authHeader } : {},
+      payload: { text: 'hello' },
+    });
+  }
+
+  function postPhoto(authHeader: string | null) {
+    const boundary = '----tok-boundary';
+    const parts: Buffer[] = [
+      Buffer.from(`--${boundary}\r\n`),
+      Buffer.from(
+        'Content-Disposition: form-data; name="file"; filename="p.png"\r\nContent-Type: image/png\r\n\r\n',
+      ),
+      minimalPng,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ];
+    return app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/photos',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        ...(authHeader ? { authorization: authHeader } : {}),
+      },
+      payload: Buffer.concat(parts),
+    });
+  }
+
+  it('messages: 401 + scan message with no Authorization header', async () => {
+    const res = await postMessage(null);
+    expect(res.statusCode).toBe(401);
+    expect((res.json() as { error: string }).error).toBe(SCAN_MSG);
+  });
+
+  it('messages: 401 + expired message with an expired token', async () => {
+    const res = await postMessage(expiredAuth());
+    expect(res.statusCode).toBe(401);
+    expect((res.json() as { error: string }).error).toBe(EXPIRED_MSG);
+  });
+
+  it('messages: 401 with a bad-signature token', async () => {
+    expect((await postMessage(badSigAuth())).statusCode).toBe(401);
+  });
+
+  it('messages: 401 with a token minted for another event', async () => {
+    expect((await postMessage(validAuth('celebration'))).statusCode).toBe(401);
+  });
+
+  it('photos: 401 + scan message with no Authorization header', async () => {
+    const res = await postPhoto(null);
+    expect(res.statusCode).toBe(401);
+    expect((res.json() as { error: string }).error).toBe(SCAN_MSG);
+  });
+
+  it('photos: 401 + expired message with an expired token', async () => {
+    const res = await postPhoto(expiredAuth());
+    expect(res.statusCode).toBe(401);
+    expect((res.json() as { error: string }).error).toBe(EXPIRED_MSG);
+  });
+
+  it('photos: 401 with a bad-signature token', async () => {
+    expect((await postPhoto(badSigAuth())).statusCode).toBe(401);
+  });
+
+  it('photos: 401 with a token minted for another event', async () => {
+    expect((await postPhoto(validAuth('celebration'))).statusCode).toBe(401);
+  });
+
+  it('reads stay public — GET photos and messages need no token', async () => {
+    expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' })).statusCode).toBe(200);
   });
 });
