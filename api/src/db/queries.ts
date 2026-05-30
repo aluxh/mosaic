@@ -59,14 +59,16 @@ export interface InsertMessageInput {
   name: string;
   text: string;
   created_at: number;
+  photo_id?: string | null;
 }
 
 export function insertMessage(db: DB, m: InsertMessageInput): MessageRow {
+  const row = { ...m, photo_id: m.photo_id ?? null };
   db.prepare(
-    `INSERT INTO messages (id, event_id, name, text, created_at)
-     VALUES (@id, @event_id, @name, @text, @created_at)`,
-  ).run(m);
-  return m as MessageRow;
+    `INSERT INTO messages (id, event_id, name, text, created_at, photo_id)
+     VALUES (@id, @event_id, @name, @text, @created_at, @photo_id)`,
+  ).run(row);
+  return row as MessageRow;
 }
 
 export function listMessages(db: DB, eventId: string): MessageRow[] {
