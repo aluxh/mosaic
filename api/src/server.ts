@@ -10,6 +10,7 @@ import { SEED_EVENTS, resolveEventMode, applyEventOverrides } from './lib/seedEv
 import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { makeStoragePaths } from './lib/storage.js';
+import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
@@ -19,6 +20,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? '0.0.0.0';
 
 async function main() {
+  const tokenSecret = requireTokenSecret(process.env);
   const paths = makeStoragePaths(DATA_DIR);
   fs.mkdirSync(paths.dataDir, { recursive: true });
   fs.mkdirSync(paths.seedsDir, { recursive: true });
@@ -47,9 +49,10 @@ async function main() {
     decorateReply: false,
   });
 
+  const requireToken = makeRequireToken(tokenSecret);
   registerEventRoutes(app, db);
-  registerMessageRoutes(app, db);
-  registerPhotoRoutes(app, db, paths);
+  registerMessageRoutes(app, db, requireToken);
+  registerPhotoRoutes(app, db, paths, requireToken);
 
   app.get('/health', async () => ({ ok: true }));
 

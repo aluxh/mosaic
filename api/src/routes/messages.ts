@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { DB } from '../db/index.js';
 import { getEvent, insertMessage } from '../db/queries.js';
 import { newId } from '../lib/ids.js';
@@ -8,9 +8,14 @@ interface PostBody {
   text?: string;
 }
 
-export function registerMessageRoutes(app: FastifyInstance, db: DB): void {
+export function registerMessageRoutes(
+  app: FastifyInstance,
+  db: DB,
+  requireToken: preHandlerHookHandler,
+): void {
   app.post<{ Params: { id: string }; Body: PostBody }>(
     '/api/events/:id/messages',
+    { preHandler: requireToken },
     async (req, reply) => {
       const event = getEvent(db, req.params.id);
       if (!event) return reply.code(404).send({ error: 'event not found' });

@@ -15,6 +15,7 @@ import {
   postMessage,
   uploadPhoto,
 } from './lib/api';
+import { readToken } from './lib/token';
 import type { Event, Message, Photo } from './types';
 
 const POLL_MS = 10_000;
@@ -32,6 +33,7 @@ export function App() {
   const onNext = () => wallRef.current?.next();
 
   const event = useMemo(() => events[0] ?? null, [events]);
+  const token = useMemo(() => readToken() ?? undefined, []);
 
   useEffect(() => {
     fetchEvents().then(setEvents).catch(console.error);
@@ -70,6 +72,7 @@ export function App() {
         s.file,
         s.name || undefined,
         s.message || undefined,
+        token,
       );
       uploaded = photo;
       setPhotosByEvent((prev) => ({
@@ -83,10 +86,11 @@ export function App() {
         }));
       }
     } else if (s.message) {
-      const m = await postMessage(event.id, {
-        name: s.name || undefined,
-        text: s.message,
-      });
+      const m = await postMessage(
+        event.id,
+        { name: s.name || undefined, text: s.message },
+        token,
+      );
       setMessagesByEvent((prev) => ({
         ...prev,
         [event.id]: [...(prev[event.id] ?? []), m],

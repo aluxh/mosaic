@@ -11,7 +11,8 @@
     "build": "npm --prefix web run build && npm --prefix api run build",
     "test": "npm --prefix web run test -- --run && npm --prefix api run test -- --run",
     "test:web": "npm --prefix web run test",
-    "test:api": "npm --prefix api run test"
+    "test:api": "npm --prefix api run test",
+    "mint-token": "npm --prefix api run mint-token --"
   },
   "devDependencies": {
     "concurrently": "^9.0.1"

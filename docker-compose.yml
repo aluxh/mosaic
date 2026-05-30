@@ -24,6 +24,8 @@ services:
       EVENT_INVITATION: ${EVENT_INVITATION:-}
       EVENT_BRAND_SUB: ${EVENT_BRAND_SUB:-}
       EVENT_SHORT_CODE: ${EVENT_SHORT_CODE:-}
+      TOKEN_SECRET: ${TOKEN_SECRET:-}
+      # TOKEN_TTL_DAYS: "14"   # validity window for newly minted tokens
     volumes:
       - ./data:/data
     expose:

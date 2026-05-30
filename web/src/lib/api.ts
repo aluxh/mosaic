@@ -86,6 +86,7 @@ export async function uploadPhoto(
   file: File,
   name?: string,
   message?: string,
+  token?: string,
 ): Promise<{ photo: Photo; message: Message | null }> {
   const fd = new FormData();
   fd.append('file', file);
@@ -94,6 +95,7 @@ export async function uploadPhoto(
   const res = await fetch(`/api/events/${eventId}/photos`, {
     method: 'POST',
     body: fd,
+    ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -109,12 +111,19 @@ export async function uploadPhoto(
 export async function postMessage(
   eventId: string,
   body: { name?: string; text: string },
+  token?: string,
 ): Promise<Message> {
   const res = await fetch(`/api/events/${eventId}/messages`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`message -> ${res.status}`);
+  if (!res.ok) {
+    const b = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(b.error ?? `message -> ${res.status}`);
+  }
   return toMessage((await res.json()) as ApiMessage);
 }

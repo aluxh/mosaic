@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
+    "mint-token": "tsx src/cli/mintToken.ts",
     "build": "tsc --noEmit",
     "test": "vitest",
     "typecheck": "tsc --noEmit"
