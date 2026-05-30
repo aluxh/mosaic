@@ -82,3 +82,15 @@ export function mintToken(opts: {
     url: `${host}/#t=${token}`,
   };
 }
+
+export function formatBootToken(result: MintResult, baseUrl?: string): string[] {
+  const lines = [
+    '✓ Token minted',
+    `  Token:   ${result.token}`,
+    `  Expires: ${result.expiresAt}`,
+  ];
+  if (baseUrl) {
+    lines.push(`  URL:     ${result.url}`);
+  }
+  return lines;
+}

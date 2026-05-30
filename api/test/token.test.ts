@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signToken, verifyToken, mintToken, type TokenPayload } from '../src/lib/token.js';
+import { signToken, verifyToken, mintToken, formatBootToken, type TokenPayload } from '../src/lib/token.js';
 
 const SECRET = 'unit-test-secret';
 const futurePayload: TokenPayload = { eid: 'remembrance', exp: 4_102_444_800 }; // year 2100
@@ -119,5 +119,38 @@ describe('mintToken', () => {
     const nowMs = 1_700_000_000_000;
     const r = mintToken({ secret: SECRET, eid: 'remembrance', ttlDays: 1, now: nowMs });
     expect(r.expiresAt).toBe(new Date((Math.floor(nowMs / 1000) + 86400) * 1000).toISOString());
+  });
+});
+
+describe('formatBootToken', () => {
+  const result = mintToken({
+    secret: 'test-secret',
+    eid: 'remembrance',
+    ttlDays: 14,
+    baseUrl: 'https://event.example.com',
+    now: 1_700_000_000_000,
+  });
+
+  it('includes a URL line when baseUrl is set', () => {
+    const lines = formatBootToken(result, 'https://event.example.com');
+    expect(lines).toHaveLength(4);
+    expect(lines[0]).toBe('✓ Token minted');
+    expect(lines.some((l) => l.includes(result.token))).toBe(true);
+    expect(lines.some((l) => l.includes(result.expiresAt))).toBe(true);
+    expect(lines.some((l) => l.includes('URL:') && l.includes(result.url))).toBe(true);
+  });
+
+  it('omits the URL line when baseUrl is undefined', () => {
+    const lines = formatBootToken(result, undefined);
+    expect(lines).toHaveLength(3);
+    expect(lines.some((l) => l.includes('URL:'))).toBe(false);
+    expect(lines.some((l) => l.includes(result.token))).toBe(true);
+    expect(lines.some((l) => l.includes(result.expiresAt))).toBe(true);
+  });
+
+  it('logs a token that verifies for the same secret and event', () => {
+    const minted = mintToken({ secret: 'test-secret', eid: 'remembrance', ttlDays: 14 });
+    const v = verifyToken(minted.token, 'test-secret', 'remembrance');
+    expect(v.ok).toBe(true);
   });
 });
