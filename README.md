@@ -6,16 +6,6 @@ to upload a photo or leave a written memory.
 
 Designed to run on a Synology NAS via Docker.
 
-## Status
-
-**v0.4.1 — Code scanning hardening** is the latest shipped release. The roadmap and feature specs live in a
-private sibling repo (`aluxh/mosaic-specs`).
-
-## Ground rules
-
-This project follows the rules in [`CLAUDE.md`](CLAUDE.md):
-spec-driven, TDD, simplicity-first, surgical changes. Read it before contributing.
-
 ## Layout
 
 ```
@@ -122,8 +112,8 @@ Each event has its own database and photos — they are fully independent.
 ### Releasing a new version
 
 ```bash
-git tag -a v0.4.1 -m "v0.4.1"
-git push origin v0.4.1
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
 ```
 
 GitHub Actions builds and pushes `mosaic-api` and `mosaic-web` to GHCR (takes
@@ -134,7 +124,7 @@ After the first push, go to <https://github.com/users/aluxh/packages> and set
 both `mosaic-api` and `mosaic-web` packages to **Public** and link them to
 this repository.
 
-### Capability tokens (v0.3+)
+### Capability tokens
 
 Both write endpoints (`POST .../photos`, `POST .../messages`) require a
 signed token. Reads (the slideshow, the TV display) stay public and need no
@@ -192,26 +182,23 @@ line. Without it, the log prints the token + expiry only and you append
 token; previously minted tokens (the QR poster, earlier boots) keep working
 until their own expiry.
 
-### Thumbnail variants (v0.4+)
+### Thumbnail variants
 
 The API writes downscaled `1024w` and `320w` variants under
 `data/variants/<event-id>/` for uploads and seed photos. Existing photos are
-backfilled on API boot, so no manual migration is needed when upgrading from
-pre-v0.4 releases. Keep `data/variants/` in the same mounted data folder as
-`seeds/`, `uploads/`, and `mosaic.db`.
+backfilled on API boot, so no manual migration is needed. Keep
+`data/variants/` in the same mounted data folder as `seeds/`, `uploads/`, and
+`mosaic.db`.
 
-### API hardening (v0.4.1+)
+### Upload safety & rate limiting
 
 The API validates upload paths before writing files and applies
-`@fastify/rate-limit` to requests. CodeQL security review is expected to pass
-on the release branch; the remaining Fastify global-rate-limit modeling alert
-was dismissed as a documented false positive after route-level `429`
-regression coverage.
+`@fastify/rate-limit` to requests.
 
 ### Secrets policy
 
-All secrets — admin password, HMAC signing keys, JWT secrets (none in v0.1;
-several in v0.2+) — **must** be passed via the `environment:` block in
+All secrets — admin password, HMAC signing keys, JWT secrets — **must** be
+passed via the `environment:` block in
 `docker-compose.prod.yml` on the NAS. Never bake secrets into a Dockerfile,
 never commit a `.env` file, never hardcode them in source. `.dockerignore`
 already excludes `.env*`; do not remove that line.
