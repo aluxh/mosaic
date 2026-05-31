@@ -82,8 +82,8 @@ describe('ingestImage', () => {
   });
 
   it('accepts HEIC (heif + hevc), returns format=jpeg, ext=.jpg, JPEG buffer', async (ctx) => {
-    if (!heicReady) { ctx.skip(); return; }
-    const result = await ingestImage(heicFixture!, MAX_FILE_BYTES);
+    if (!heicReady || !heicFixture) { ctx.skip(); return; }
+    const result = await ingestImage(heicFixture, MAX_FILE_BYTES);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.format).toBe('jpeg');

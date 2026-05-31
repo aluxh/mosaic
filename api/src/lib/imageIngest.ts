@@ -28,7 +28,9 @@ export async function ingestImage(input: Buffer, maxBytes: number): Promise<Inge
     return { ok: false, code: 415, error: 'unsupported image type — JPEG, PNG, WebP, or HEIC only' };
   }
 
-  // HEIC normalizes to JPEG, matching the existing JPEG path (rotate + strip EXIF).
+  // The `accepted` gate above is the gatekeeper; the 'else jpeg' arm here covers
+  // both jpeg and heic, so HEIC normalizes to JPEG (rotate + strip EXIF) like the
+  // existing JPEG path.
   const outFormat: 'jpeg' | 'png' | 'webp' =
     meta.format === 'png' ? 'png' : meta.format === 'webp' ? 'webp' : 'jpeg';
 
