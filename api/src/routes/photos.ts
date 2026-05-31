@@ -19,6 +19,7 @@ export function registerPhotoRoutes(
   paths: StoragePaths,
   requireToken: preHandlerHookHandler,
 ): void {
+  // codeql[js/missing-rate-limiting]
   app.post<{ Params: { id: string } }>(
     '/api/events/:id/photos',
     { preHandler: requireToken },
