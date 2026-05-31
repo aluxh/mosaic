@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { safeEventId, safeFilename } from './pathSafety.js';
+import { safeFilename } from './pathSafety.js';
 
 export const VARIANT_WIDTHS = [1024, 320] as const;
 
@@ -36,11 +36,25 @@ export async function ensureVariants(
   originalBuf: Buffer,
   format: 'jpeg' | 'png' | 'webp',
 ): Promise<void> {
-  const variantsDir = path.join(variantsRootDir, safeEventId(eventId));
-  const cleanFilename = safeFilename(filename);
+  if (!/^[A-Za-z0-9_-]+$/.test(eventId)) {
+    throw new Error('unsafe event id');
+  }
+  if (filename === '.' || filename === '..' || !/^[ A-Za-z0-9._()-]+$/.test(filename)) {
+    throw new Error('unsafe filename');
+  }
+
+  const variantsRoot = path.resolve(variantsRootDir);
+  const variantsDir = path.resolve(variantsRoot, eventId);
+  if (!variantsDir.startsWith(`${variantsRoot}${path.sep}`)) {
+    throw new Error('unsafe event id');
+  }
+
   fs.mkdirSync(variantsDir, { recursive: true });
   for (const width of VARIANT_WIDTHS) {
-    const target = path.join(variantsDir, variantFilename(cleanFilename, width));
+    const target = path.resolve(variantsDir, variantFilename(filename, width));
+    if (!target.startsWith(`${variantsDir}${path.sep}`)) {
+      throw new Error('unsafe filename');
+    }
     if (fs.existsSync(target)) continue;
     const out = await generateVariant(originalBuf, format, width);
     fs.writeFileSync(target, out);
