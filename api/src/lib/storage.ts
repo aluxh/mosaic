@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { safeEventId, safeFilename } from './pathSafety.js';
 import { variantFilename } from './variants.js';
 
 export interface StoragePaths {
@@ -20,22 +21,22 @@ export function makeStoragePaths(dataDir: string): StoragePaths {
 }
 
 export function seedsDirFor(paths: StoragePaths, eventId: string): string {
-  return path.join(paths.seedsDir, eventId);
+  return path.join(paths.seedsDir, safeEventId(eventId));
 }
 
 export function uploadsDirFor(paths: StoragePaths, eventId: string): string {
-  return path.join(paths.uploadsDir, eventId);
+  return path.join(paths.uploadsDir, safeEventId(eventId));
 }
 
 export function variantsDirFor(paths: StoragePaths, eventId: string): string {
-  return path.join(paths.variantsDir, eventId);
+  return path.join(paths.variantsDir, safeEventId(eventId));
 }
 
 export function publicUrlForPhoto(source: 'seed' | 'upload', eventId: string, filename: string): string {
   const base = source === 'seed' ? '/data/seeds' : '/data/uploads';
-  return `${base}/${eventId}/${encodeURIComponent(filename)}`;
+  return `${base}/${safeEventId(eventId)}/${encodeURIComponent(safeFilename(filename))}`;
 }
 
 export function publicUrlForVariant(eventId: string, filename: string, width: number): string {
-  return `/data/variants/${eventId}/${encodeURIComponent(variantFilename(filename, width))}`;
+  return `/data/variants/${safeEventId(eventId)}/${encodeURIComponent(variantFilename(filename, width))}`;
 }

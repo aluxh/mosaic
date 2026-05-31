@@ -21,4 +21,10 @@ describe('storage variant helpers', () => {
     expect(publicUrlForVariant('ev1', 'a b.jpg', 1024)).toBe('/data/variants/ev1/a%20b-1024.jpg');
     expect(publicUrlForVariant('ev1', 'x.png', 320)).toBe('/data/variants/ev1/x-320.png');
   });
+
+  it('rejects unsafe event ids and filenames', () => {
+    const paths = makeStoragePaths('/data');
+    expect(() => variantsDirFor(paths, '../ev1')).toThrow('unsafe event id');
+    expect(() => publicUrlForVariant('ev1', '../x.png', 320)).toThrow('unsafe filename');
+  });
 });

@@ -33,6 +33,6 @@ export async function backfillVariants(db: DB, paths: StoragePaths, eventId: str
     const originalPath = path.join(sourceDir, row.filename);
     if (!fs.existsSync(originalPath)) continue;
 
-    await ensureVariants(variantsDir, row.filename, fs.readFileSync(originalPath), format);
+    await ensureVariants(paths.variantsDir, eventId, row.filename, fs.readFileSync(originalPath), format);
   }
 }

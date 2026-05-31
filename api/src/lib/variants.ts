@@ -1,14 +1,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
+import { safeEventId, safeFilename } from './pathSafety.js';
 
 export const VARIANT_WIDTHS = [1024, 320] as const;
 
 export type VariantWidth = (typeof VARIANT_WIDTHS)[number];
 
 export function variantFilename(filename: string, width: number): string {
-  const ext = path.extname(filename);
-  const base = filename.slice(0, filename.length - ext.length);
+  const cleanFilename = safeFilename(filename);
+  const ext = path.extname(cleanFilename);
+  const base = cleanFilename.slice(0, cleanFilename.length - ext.length);
   return `${base}-${width}${ext}`;
 }
 
@@ -28,14 +30,17 @@ export async function generateVariant(
 }
 
 export async function ensureVariants(
-  variantsDir: string,
+  variantsRootDir: string,
+  eventId: string,
   filename: string,
   originalBuf: Buffer,
   format: 'jpeg' | 'png' | 'webp',
 ): Promise<void> {
+  const variantsDir = path.join(variantsRootDir, safeEventId(eventId));
+  const cleanFilename = safeFilename(filename);
   fs.mkdirSync(variantsDir, { recursive: true });
   for (const width of VARIANT_WIDTHS) {
-    const target = path.join(variantsDir, variantFilename(filename, width));
+    const target = path.join(variantsDir, variantFilename(cleanFilename, width));
     if (fs.existsSync(target)) continue;
     const out = await generateVariant(originalBuf, format, width);
     fs.writeFileSync(target, out);

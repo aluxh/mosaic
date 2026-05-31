@@ -68,7 +68,7 @@ describe('ensureVariants', () => {
     const variantsDir = path.join(dir, 'variants', 'ev1');
     const original = await solid(2000, 1000, 'jpeg');
 
-    await ensureVariants(variantsDir, 'pic.jpg', original, 'jpeg');
+    await ensureVariants(path.join(dir, 'variants'), 'ev1', 'pic.jpg', original, 'jpeg');
     const f1024 = path.join(variantsDir, 'pic-1024.jpg');
     const f320 = path.join(variantsDir, 'pic-320.jpg');
     expect(fs.existsSync(f1024)).toBe(true);
@@ -76,8 +76,22 @@ describe('ensureVariants', () => {
 
     const mtime1024 = fs.statSync(f1024).mtimeMs;
     await new Promise((r) => setTimeout(r, 10));
-    await ensureVariants(variantsDir, 'pic.jpg', original, 'jpeg');
+    await ensureVariants(path.join(dir, 'variants'), 'ev1', 'pic.jpg', original, 'jpeg');
     expect(fs.statSync(f1024).mtimeMs).toBe(mtime1024);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('rejects unsafe event ids and filenames', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mosaic-variants-'));
+    const original = await solid(2000, 1000, 'jpeg');
+
+    await expect(ensureVariants(path.join(dir, 'variants'), '../ev1', 'pic.jpg', original, 'jpeg')).rejects.toThrow(
+      'unsafe event id',
+    );
+    await expect(ensureVariants(path.join(dir, 'variants'), 'ev1', '../pic.jpg', original, 'jpeg')).rejects.toThrow(
+      'unsafe filename',
+    );
 
     fs.rmSync(dir, { recursive: true, force: true });
   });

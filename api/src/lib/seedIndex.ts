@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DB } from '../db/index.js';
 import { insertPhoto, listEvents, photoExists } from '../db/queries.js';
-import { seedsDirFor, variantsDirFor, type StoragePaths } from './storage.js';
+import { seedsDirFor, type StoragePaths } from './storage.js';
 import { ingestImage, MAX_FILE_BYTES } from './imageIngest.js';
 import { ensureVariants } from './variants.js';
 
@@ -61,7 +61,7 @@ export async function indexSeedsForEvent(
       credit: 'Host',
       created_at: now(),
     });
-    await ensureVariants(variantsDirFor(paths, eventId), filename, result.buf, result.format);
+    await ensureVariants(paths.variantsDir, eventId, filename, result.buf, result.format);
     inserted += 1;
   }
 

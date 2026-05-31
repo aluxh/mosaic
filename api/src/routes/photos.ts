@@ -8,7 +8,6 @@ import {
   publicUrlForPhoto,
   publicUrlForVariant,
   uploadsDirFor,
-  variantsDirFor,
   type StoragePaths,
 } from '../lib/storage.js';
 import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
@@ -61,7 +60,7 @@ export function registerPhotoRoutes(
       const dir = uploadsDirFor(paths, req.params.id);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, filename), result.buf);
-      await ensureVariants(variantsDirFor(paths, req.params.id), filename, result.buf, result.format);
+      await ensureVariants(paths.variantsDir, req.params.id, filename, result.buf, result.format);
 
       const createdAt = Date.now();
       const writePair = db.transaction(() => {
