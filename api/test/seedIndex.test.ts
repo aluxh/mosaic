@@ -121,6 +121,31 @@ describe('indexSeedsForEvent', () => {
     expect(listPhotos(db, 'remembrance')).toHaveLength(1);
   });
 
+  it('renames a .jpeg seed to .jpg, indexes under the new name, idempotent', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'photo.jpeg'), validJpeg);
+
+    const result = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(result.inserted).toBe(1);
+
+    const rows = listPhotos(db, 'remembrance');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.filename).toBe('photo.jpg');
+
+    expect(fs.existsSync(path.join(dir, 'photo.jpeg'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, 'photo.jpg'))).toBe(true);
+
+    const vdir = variantsDirFor(paths, 'remembrance');
+    expect(fs.existsSync(path.join(vdir, 'photo-1024.jpg'))).toBe(true);
+    expect(fs.existsSync(path.join(vdir, 'photo-320.jpg'))).toBe(true);
+
+    // Idempotent: a reboot finds only photo.jpg and skips it.
+    const second = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(second.inserted).toBe(0);
+    expect(listPhotos(db, 'remembrance')).toHaveLength(1);
+  });
+
   it('is idempotent — second run inserts nothing new', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });

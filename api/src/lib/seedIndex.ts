@@ -55,7 +55,7 @@ export async function indexSeedsForEvent(
     const ext = path.extname(filename).toLowerCase();
     let storedName = filename;
     if (ext !== result.ext) {
-      storedName = filename.slice(0, filename.length - path.extname(filename).length) + result.ext;
+      storedName = filename.slice(0, filename.length - ext.length) + result.ext;
       fs.writeFileSync(path.join(dir, storedName), result.buf);
       fs.rmSync(file);
     } else if (!result.buf.equals(buf)) {
