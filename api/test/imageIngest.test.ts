@@ -81,7 +81,8 @@ describe('ingestImage', () => {
     expect(result.error).toBe('unsupported image type — JPEG, PNG, WebP, or HEIC only');
   });
 
-  it.skipIf(!heicReady)('accepts HEIC (heif + hevc), returns format=jpeg, ext=.jpg, JPEG buffer', async () => {
+  it('accepts HEIC (heif + hevc), returns format=jpeg, ext=.jpg, JPEG buffer', async (ctx) => {
+    if (!heicReady) { ctx.skip(); return; }
     const result = await ingestImage(heicFixture!, MAX_FILE_BYTES);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
