@@ -1,8 +1,78 @@
+FROM node:20-bookworm-slim AS libvips-builder
+# Build libvips 8.15.3 from source with libheif + libde265 (HEVC decode support).
+# bookworm ships libvips 8.14.1 (too old for Sharp 0.33.5's >=8.15.3 requirement)
+# and its libheif 1.15.1 doesn't register the de265 codec properly.  We build the
+# exact libvips version Sharp requires, linked against backports libheif 1.19.7 +
+# its libde265 plugin.  -Dlibdir=lib keeps pkg-config paths canonical (not lib64).
+RUN echo 'deb http://deb.debian.org/debian bookworm-backports main' \
+      >> /etc/apt/sources.list.d/backports.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+         ca-certificates curl xz-utils \
+         meson ninja-build pkg-config \
+         python3 python3-setuptools python3-pkg-resources \
+         make g++ \
+         libglib2.0-dev libexpat1-dev zlib1g-dev \
+         libjpeg-dev \
+         libde265-dev \
+    && apt-get install -y --no-install-recommends \
+         -t bookworm-backports libheif-dev libheif-plugin-libde265 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+RUN curl -fsSL https://github.com/libvips/libvips/releases/download/v8.15.3/vips-8.15.3.tar.xz \
+      -o vips.tar.xz \
+    && tar xf vips.tar.xz \
+    && cd vips-8.15.3 \
+    && meson setup build \
+         --prefix=/usr/local \
+         --buildtype=release \
+         -Dlibdir=lib \
+         -Dintrospection=disabled \
+         -Dvapi=false \
+         -Ddoxygen=false \
+         -Dgtk_doc=false \
+    && cd build \
+    && ninja \
+    && ninja install
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM node:20-bookworm-slim
 WORKDIR /app
 
-# Native deps for better-sqlite3 + sharp ship as prebuilds for this base image,
-# so no system build tooling required.
+# HEIC (HEVC) decode requires a global libvips built with libheif + libde265;
+# Sharp's bundled prebuilt libvips omits HEVC. Install the codec stack plus the
+# node-addon build toolchain, then force Sharp to compile against global libvips.
+# (Decode only — no x265 encoder, since HEIC is transcoded to JPEG on ingest.)
+#
+# libvips 8.15.3 (built in libvips-builder stage) is copied to /usr/local;
+# backports libheif 1.19.7 + libheif-plugin-libde265 are the runtime codecs.
+RUN echo 'deb http://deb.debian.org/debian bookworm-backports main' \
+      >> /etc/apt/sources.list.d/backports.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+         pkg-config python3 make g++ \
+         libglib2.0-0 libglib2.0-dev libexpat1 libexpat1-dev zlib1g zlib1g-dev \
+         libjpeg62-turbo libjpeg-dev \
+         libde265-0 \
+    && apt-get install -y --no-install-recommends \
+         -t bookworm-backports libheif1 libheif-plugin-libde265 \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g --no-audit --no-fund node-addon-api@8.1.0 node-gyp
+
+# Copy libvips 8.15.3 from builder (installed to /usr/local/lib)
+COPY --from=libvips-builder /usr/local/lib/libvips*.so* /usr/local/lib/
+COPY --from=libvips-builder /usr/local/lib/pkgconfig/vips*.pc /usr/local/lib/pkgconfig/
+COPY --from=libvips-builder /usr/local/include/vips /usr/local/include/vips/
+COPY --from=libvips-builder /usr/local/lib/vips-modules-8.15 /usr/local/lib/vips-modules-8.15/
+RUN ldconfig
+
+ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
+# Make globally-installed node-addon-api findable by require() during npm install
+ENV NODE_PATH=/usr/local/lib/node_modules
+# Add all pkgconfig directories so Sharp's pkg-config calls can resolve all deps
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/lib/pkgconfig
+
 COPY tsconfig.base.json ./
 COPY api/package.json api/package-lock.json* ./api/
 RUN cd api && npm install --no-audit --no-fund --omit=dev
