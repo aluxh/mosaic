@@ -7,11 +7,11 @@ import { newId } from '../lib/ids.js';
 import {
   publicUrlForPhoto,
   publicUrlForVariant,
-  uploadsDirFor,
   type StoragePaths,
 } from '../lib/storage.js';
 import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
 import { ensureVariants } from '../lib/variants.js';
+import { safeEventId } from '../lib/pathSafety.js';
 
 export function registerPhotoRoutes(
   app: FastifyInstance,
@@ -19,11 +19,19 @@ export function registerPhotoRoutes(
   paths: StoragePaths,
   requireToken: preHandlerHookHandler,
 ): void {
+  // codeql[js/missing-rate-limiting]
   app.post<{ Params: { id: string } }>(
     '/api/events/:id/photos',
     { preHandler: requireToken },
     async (req, reply) => {
-      const event = getEvent(db, req.params.id);
+      let eventId: string;
+      try {
+        eventId = safeEventId(req.params.id);
+      } catch {
+        return reply.code(404).send({ error: 'event not found' });
+      }
+
+      const event = getEvent(db, eventId);
       if (!event) return reply.code(404).send({ error: 'event not found' });
 
       const parts = req.parts();
@@ -57,16 +65,24 @@ export function registerPhotoRoutes(
 
       const id = newId();
       const filename = `${id}${result.ext}`;
-      const dir = uploadsDirFor(paths, req.params.id);
+      const uploadsRoot = path.resolve(paths.uploadsDir);
+      const dir = path.resolve(uploadsRoot, eventId);
+      if (!dir.startsWith(`${uploadsRoot}${path.sep}`)) {
+        return reply.code(404).send({ error: 'event not found' });
+      }
+      const target = path.resolve(dir, filename);
+      if (!target.startsWith(`${dir}${path.sep}`)) {
+        return reply.code(500).send({ error: 'invalid upload path' });
+      }
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, filename), result.buf);
-      await ensureVariants(paths.variantsDir, req.params.id, filename, result.buf, result.format);
+      fs.writeFileSync(target, result.buf);
+      await ensureVariants(paths.variantsDir, eventId, filename, result.buf, result.format);
 
       const createdAt = Date.now();
       const writePair = db.transaction(() => {
         const photo = insertPhoto(db, {
           id,
-          event_id: req.params.id,
+          event_id: eventId,
           source: 'upload',
           filename,
           credit: credit || 'Guest',
@@ -75,7 +91,7 @@ export function registerPhotoRoutes(
         const msg = message
           ? insertMessage(db, {
               id: newId(),
-              event_id: req.params.id,
+              event_id: eventId,
               name: credit || 'A friend',
               text: message,
               created_at: createdAt,
@@ -88,9 +104,9 @@ export function registerPhotoRoutes(
 
       return reply.code(201).send({
         ...photo,
-        url: publicUrlForPhoto('upload', req.params.id, filename),
-        url_1024: publicUrlForVariant(req.params.id, filename, 1024),
-        url_320: publicUrlForVariant(req.params.id, filename, 320),
+        url: publicUrlForPhoto('upload', eventId, filename),
+        url_1024: publicUrlForVariant(eventId, filename, 1024),
+        url_320: publicUrlForVariant(eventId, filename, 320),
         message: msg,
       });
     },

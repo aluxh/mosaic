@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import sharp from 'sharp';
 import { openDatabase, type DB } from '../src/db/index.js';
 import { applySchemaFromString } from '../src/db/migrate.js';
@@ -42,6 +43,14 @@ let app: FastifyInstance;
 let minimalPng: Buffer;
 let jpegWithExif: Buffer;
 
+function rateLimitOptions(max: number) {
+  return {
+    max,
+    timeWindow: 60_000,
+    errorResponseBuilder: () => ({ statusCode: 429, error: 'too many requests' }),
+  };
+}
+
 beforeAll(async () => {
   const tiny = { width: 1, height: 1, channels: 3 as const, background: 'red' };
   minimalPng = await sharp({ create: tiny }).png().toBuffer();
@@ -56,6 +65,7 @@ beforeAll(async () => {
 async function buildApp() {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  await app.register(rateLimit, rateLimitOptions(100));
   const requireToken = makeRequireToken(TEST_SECRET);
   registerEventRoutes(app, db);
   registerMessageRoutes(app, db, requireToken);
@@ -118,6 +128,19 @@ describe('GET /api/events/:id/photos', () => {
     expect(body[0]?.url).toBe('/data/seeds/remembrance/one.jpg');
     expect(body[0]?.url_1024).toBe('/data/variants/remembrance/one-1024.jpg');
     expect(body[0]?.url_320).toBe('/data/variants/remembrance/one-320.jpg');
+  });
+
+  it('rate limits repeated photo list requests', async () => {
+    await app.close();
+    app = Fastify();
+    await app.register(rateLimit, rateLimitOptions(1));
+    registerEventRoutes(app, db);
+    await app.ready();
+
+    expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' })).statusCode).toBe(200);
+    const limited = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect(limited.statusCode).toBe(429);
+    expect((limited.json() as { error: string }).error).toBe('too many requests');
   });
 });
 
@@ -222,6 +245,32 @@ describe('POST /api/events/:id/photos', () => {
     const vdir = variantsDirFor(paths, 'remembrance');
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
+  });
+
+  it('rejects unsafe event ids before writing upload files', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/..%2Fevil/photos',
+      headers: { authorization: validAuth('../evil') },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+    expect(fs.existsSync(path.join(paths.uploadsDir, 'evil'))).toBe(false);
+  });
+
+  it('rate limits repeated photo uploads', async () => {
+    await app.close();
+    app = Fastify();
+    await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+    await app.register(rateLimit, rateLimitOptions(1));
+    const requireToken = makeRequireToken(TEST_SECRET);
+    registerPhotoRoutes(app, db, paths, requireToken);
+    await app.ready();
+
+    expect((await uploadBuffer(minimalPng, 'one.png', 'image/png')).statusCode).toBe(201);
+    const limited = await uploadBuffer(minimalPng, 'two.png', 'image/png');
+    expect(limited.statusCode).toBe(429);
+    expect((limited.json() as { error: string }).error).toBe('too many requests');
   });
 
   it('accepts JPEG with EXIF, strips metadata on disk', async () => {

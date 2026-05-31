@@ -3,6 +3,7 @@ import path from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { openDatabase } from './db/index.js';
 import { migrate } from './db/migrate.js';
@@ -46,6 +47,10 @@ async function main() {
   await app.register(cors, { origin: true });
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 },
+  });
+  await app.register(rateLimit, {
+    max: 120,
+    timeWindow: 60_000,
   });
   await app.register(fastifyStatic, {
     root: paths.dataDir,

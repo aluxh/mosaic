@@ -20,7 +20,6 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
   const [name, setName] = useState('');
   const [message, setMessage] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -32,7 +31,6 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
       setName('');
       setMessage('');
       setFile(null);
-      setPreview(null);
       setSuccess(false);
       setSubmitting(false);
       setError(null);
@@ -45,7 +43,6 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
   const handleFile = (f: File | null | undefined) => {
     if (!f) return;
     setFile(f);
-    setPreview(URL.createObjectURL(f));
     setError(null);
   };
 
@@ -66,7 +63,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
         name: name.trim(),
         message: message.trim(),
         file,
-        previewUrl: preview,
+        previewUrl: null,
       });
       setSuccess(true);
       await new Promise((r) => setTimeout(r, 1100));
@@ -134,27 +131,20 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
               className="relative border border-dashed border-line rounded-lg overflow-hidden cursor-pointer transition hover:border-ink/60"
               style={{ aspectRatio: '2.4/1' }}
             >
-              {preview ? (
+              {file ? (
                 <>
-                  <img
-                    src={preview}
-                    alt=""
-                    className="absolute inset-0 w-full h-full"
-                    style={{ objectFit: 'cover' }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-ink/5" />
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setFile(null);
-                      setPreview(null);
                     }}
                     className="absolute top-2 right-2 mono text-[0.62rem] tracking-[0.18em] uppercase bg-white/95 text-black/80 px-2 py-1 rounded hover:bg-white"
                   >
                     Replace
                   </button>
-                  <div className="absolute left-3 bottom-3 mono text-[0.62rem] tracking-[0.18em] uppercase text-white/90">
-                    {file?.name || 'preview'}
+                  <div className="absolute left-3 bottom-3 mono text-[0.62rem] tracking-[0.18em] uppercase text-ink-soft">
+                    {file.name}
                   </div>
                 </>
               ) : (

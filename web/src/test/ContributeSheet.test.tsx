@@ -1,14 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ContributeSheet } from '../components/ContributeSheet';
-
-beforeEach(() => {
-  Object.defineProperty(URL, 'createObjectURL', {
-    value: vi.fn(() => 'blob:mock-url'),
-    writable: true,
-  });
-});
 
 describe('ContributeSheet', () => {
   it('renders nothing when closed', () => {
@@ -77,7 +70,13 @@ describe('ContributeSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('stores a preview URL when a file is selected', async () => {
+  it('shows the selected filename without creating an object URL', async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: createObjectURL,
+      configurable: true,
+    });
     render(
       <ContributeSheet open={true} mode="celebration" onClose={() => {}} onSubmit={() => {}} />,
     );
@@ -87,7 +86,11 @@ describe('ContributeSheet', () => {
     await waitFor(() => {
       expect(screen.getByText('photo.jpg')).toBeInTheDocument();
     });
-    expect(URL.createObjectURL).toHaveBeenCalledWith(file);
+    expect(createObjectURL).not.toHaveBeenCalled();
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: originalCreateObjectURL,
+      configurable: true,
+    });
   });
 
   it('renders server error on 413 response', async () => {
@@ -120,6 +123,21 @@ describe('ContributeSheet', () => {
         screen.getByText('unsupported image type — JPEG, PNG, or WebP only'),
       ).toBeInTheDocument(),
     );
+  });
+
+  it('renders HTML-looking server errors as plain text', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('<img src=x onerror=alert(1)>'));
+    render(
+      <ContributeSheet open={true} mode="remembrance" onClose={() => {}} onSubmit={onSubmit} />,
+    );
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+    await user.click(screen.getByRole('button', { name: /add to the remembrance/i }));
+    await waitFor(() =>
+      expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument(),
+    );
+    expect(document.querySelector('.upload-error img')).toBeNull();
   });
 
   it('clears error when a new file is picked', async () => {
