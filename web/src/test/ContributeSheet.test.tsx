@@ -1,14 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ContributeSheet } from '../components/ContributeSheet';
-
-beforeEach(() => {
-  Object.defineProperty(URL, 'createObjectURL', {
-    value: vi.fn(() => 'blob:mock-url'),
-    writable: true,
-  });
-});
 
 describe('ContributeSheet', () => {
   it('renders nothing when closed', () => {
@@ -77,7 +70,13 @@ describe('ContributeSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('stores a preview URL when a file is selected', async () => {
+  it('shows the selected filename without creating an object URL', async () => {
+    const originalCreateObjectURL = URL.createObjectURL;
+    const createObjectURL = vi.fn(() => 'blob:mock-url');
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: createObjectURL,
+      configurable: true,
+    });
     render(
       <ContributeSheet open={true} mode="celebration" onClose={() => {}} onSubmit={() => {}} />,
     );
@@ -87,7 +86,11 @@ describe('ContributeSheet', () => {
     await waitFor(() => {
       expect(screen.getByText('photo.jpg')).toBeInTheDocument();
     });
-    expect(URL.createObjectURL).toHaveBeenCalledWith(file);
+    expect(createObjectURL).not.toHaveBeenCalled();
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: originalCreateObjectURL,
+      configurable: true,
+    });
   });
 
   it('renders server error on 413 response', async () => {
