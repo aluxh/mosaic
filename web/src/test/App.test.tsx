@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import * as api from '../lib/api';
 import { App } from '../App';
@@ -22,6 +22,10 @@ beforeEach(() => {
   vi.spyOn(api, 'fetchMessages').mockResolvedValue([]);
 });
 
+afterEach(() => {
+  window.location.hash = '';
+});
+
 async function renderApp() {
   const view = render(<App />);
   await waitFor(() => expect(screen.queryByText(/Loading event/i)).not.toBeInTheDocument());
@@ -29,6 +33,10 @@ async function renderApp() {
 }
 
 describe('App keyboard shortcuts', () => {
+  beforeEach(() => {
+    window.location.hash = '#t=test';
+  });
+
   it('opens the contribute sheet with "c"', async () => {
     await renderApp();
     expect(screen.queryByText(/leave a remembrance/i)).not.toBeInTheDocument();
@@ -132,6 +140,7 @@ describe('App arrow key navigation', () => {
   });
 
   it('ArrowRight ignored when an input is focused', async () => {
+    window.location.hash = '#t=test';
     const { container } = await renderApp();
     act(() => {
       fireEvent.keyDown(window, { key: 'c' });
