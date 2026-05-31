@@ -137,7 +137,7 @@ describe('App arrow key navigation', () => {
 
   it('ArrowRight advances the slide index', async () => {
     const { container } = await renderApp();
-    expect(container.textContent).toContain('01 /');
+    await waitFor(() => expect(container.textContent).toContain('01 /'));
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     });
@@ -146,7 +146,7 @@ describe('App arrow key navigation', () => {
 
   it('ArrowLeft from slide 0 wraps to the last slide', async () => {
     const { container } = await renderApp();
-    expect(container.textContent).toContain('01 /');
+    await waitFor(() => expect(container.textContent).toContain('01 /'));
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowLeft' });
     });
