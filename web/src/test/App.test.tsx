@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import * as api from '../lib/api';
 import { App } from '../App';
@@ -22,6 +22,10 @@ beforeEach(() => {
   vi.spyOn(api, 'fetchMessages').mockResolvedValue([]);
 });
 
+afterEach(() => {
+  window.location.hash = '';
+});
+
 async function renderApp() {
   const view = render(<App />);
   await waitFor(() => expect(screen.queryByText(/Loading event/i)).not.toBeInTheDocument());
@@ -29,6 +33,10 @@ async function renderApp() {
 }
 
 describe('App keyboard shortcuts', () => {
+  beforeEach(() => {
+    window.location.hash = '#t=test';
+  });
+
   it('opens the contribute sheet with "c"', async () => {
     await renderApp();
     expect(screen.queryByText(/leave a remembrance/i)).not.toBeInTheDocument();
@@ -81,6 +89,29 @@ describe('App keyboard shortcuts', () => {
   });
 });
 
+describe('App contribute gate', () => {
+  it('shows the contribute button when a token is present', async () => {
+    window.location.hash = '#t=test';
+    await renderApp();
+    expect(screen.getByText(/add to the wall/i)).toBeInTheDocument();
+  });
+
+  it('hides the contribute button when no token is present', async () => {
+    window.location.hash = '';
+    await renderApp();
+    expect(screen.queryByText(/add to the wall/i)).not.toBeInTheDocument();
+  });
+
+  it('does not open the contribute sheet with "c" when no token is present', async () => {
+    window.location.hash = '';
+    await renderApp();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'c' });
+    });
+    expect(screen.queryByText(/leave a remembrance/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('App renders event theme', () => {
   it('renders the event brand sub from the loaded event', async () => {
     await renderApp();
@@ -106,7 +137,7 @@ describe('App arrow key navigation', () => {
 
   it('ArrowRight advances the slide index', async () => {
     const { container } = await renderApp();
-    expect(container.textContent).toContain('01 /');
+    await waitFor(() => expect(container.textContent).toContain('01 /'));
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowRight' });
     });
@@ -115,7 +146,7 @@ describe('App arrow key navigation', () => {
 
   it('ArrowLeft from slide 0 wraps to the last slide', async () => {
     const { container } = await renderApp();
-    expect(container.textContent).toContain('01 /');
+    await waitFor(() => expect(container.textContent).toContain('01 /'));
     act(() => {
       fireEvent.keyDown(window, { key: 'ArrowLeft' });
     });
@@ -132,6 +163,7 @@ describe('App arrow key navigation', () => {
   });
 
   it('ArrowRight ignored when an input is focused', async () => {
+    window.location.hash = '#t=test';
     const { container } = await renderApp();
     act(() => {
       fireEvent.keyDown(window, { key: 'c' });

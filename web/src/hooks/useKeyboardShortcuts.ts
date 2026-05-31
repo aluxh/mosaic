@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 interface Handlers {
   onTogglePause: () => void;
-  onOpenContribute: () => void;
+  onOpenContribute?: () => void;
   onCloseContribute: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -23,7 +23,7 @@ export function useKeyboardShortcuts(handlers: Handlers) {
         e.preventDefault();
         handlers.onNext();
       } else if (e.key === 'c' || e.key === 'C') {
-        handlers.onOpenContribute();
+        handlers.onOpenContribute?.();
       } else if (e.key === 'Escape') {
         handlers.onCloseContribute();
       }
