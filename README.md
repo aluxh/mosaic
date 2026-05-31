@@ -8,7 +8,7 @@ Designed to run on a Synology NAS via Docker.
 
 ## Status
 
-**v0.3 — Capability tokens** is the latest shipped release. The roadmap and feature specs live in a
+**v0.4.1 — Code scanning hardening** is the latest shipped release. The roadmap and feature specs live in a
 private sibling repo (`aluxh/mosaic-specs`).
 
 ## Ground rules
@@ -41,7 +41,7 @@ These work on any keyboard connected to the TV (or via SSH with the browser open
 | `Space` | Pause / resume auto-advance |
 | `ArrowLeft` | Jump to previous slide (wraps) |
 | `ArrowRight` | Jump to next slide (wraps) |
-| `c` | Open "Add to the wall" contribute sheet |
+| `c` | Open "Add to the wall" contribute sheet when a token is present |
 | `Escape` | Close contribute sheet |
 
 On-screen: move the mouse to reveal `[‹] [pause] [›]` buttons at the bottom-right.
@@ -66,6 +66,7 @@ data folder:
 # Replace "mosaic" with your event name and "celebration" with your mode.
 sudo mkdir -p /volume1/docker/mosaic/data/seeds/celebration
 sudo mkdir -p /volume1/docker/mosaic/data/uploads/celebration
+sudo mkdir -p /volume1/docker/mosaic/data/variants/celebration
 ```
 
 Drop seed photos into `seeds/celebration/` (or `seeds/remembrance/`).
@@ -121,8 +122,8 @@ Each event has its own database and photos — they are fully independent.
 ### Releasing a new version
 
 ```bash
-git tag v0.1.0
-git push --tags
+git tag -a v0.4.1 -m "v0.4.1"
+git push origin v0.4.1
 ```
 
 GitHub Actions builds and pushes `mosaic-api` and `mosaic-web` to GHCR (takes
@@ -190,6 +191,22 @@ line. Without it, the log prints the token + expiry only and you append
 `/#t=<token>` to your event host yourself. Each restart prints a fresh
 token; previously minted tokens (the QR poster, earlier boots) keep working
 until their own expiry.
+
+### Thumbnail variants (v0.4+)
+
+The API writes downscaled `1024w` and `320w` variants under
+`data/variants/<event-id>/` for uploads and seed photos. Existing photos are
+backfilled on API boot, so no manual migration is needed when upgrading from
+pre-v0.4 releases. Keep `data/variants/` in the same mounted data folder as
+`seeds/`, `uploads/`, and `mosaic.db`.
+
+### API hardening (v0.4.1+)
+
+The API validates upload paths before writing files and applies
+`@fastify/rate-limit` to requests. CodeQL security review is expected to pass
+on the release branch; the remaining Fastify global-rate-limit modeling alert
+was dismissed as a documented false positive after route-level `429`
+regression coverage.
 
 ### Secrets policy
 
