@@ -3,6 +3,7 @@ import path from 'node:path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { openDatabase } from './db/index.js';
 import { migrate } from './db/migrate.js';
@@ -13,7 +14,6 @@ import { backfillVariants } from './lib/backfillVariants.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
-import { makeRateLimiter } from './lib/rateLimit.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
@@ -48,6 +48,10 @@ async function main() {
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 },
   });
+  await app.register(rateLimit, {
+    max: 120,
+    timeWindow: 60_000,
+  });
   await app.register(fastifyStatic, {
     root: paths.dataDir,
     prefix: '/data/',
@@ -55,10 +59,9 @@ async function main() {
   });
 
   const requireToken = makeRequireToken(tokenSecret);
-  const rateLimit = makeRateLimiter({ max: 120, windowMs: 60_000 });
-  registerEventRoutes(app, db, rateLimit);
+  registerEventRoutes(app, db);
   registerMessageRoutes(app, db, requireToken);
-  registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
+  registerPhotoRoutes(app, db, paths, requireToken);
 
   app.get('/health', async () => ({ ok: true }));
 

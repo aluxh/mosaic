@@ -18,11 +18,10 @@ export function registerPhotoRoutes(
   db: DB,
   paths: StoragePaths,
   requireToken: preHandlerHookHandler,
-  rateLimit?: preHandlerHookHandler,
 ): void {
   app.post<{ Params: { id: string } }>(
     '/api/events/:id/photos',
-    { preHandler: rateLimit ? [rateLimit, requireToken] : requireToken },
+    { preHandler: requireToken },
     async (req, reply) => {
       let eventId: string;
       try {

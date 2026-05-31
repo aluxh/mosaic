@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Fastify, { type FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
+import rateLimit from '@fastify/rate-limit';
 import sharp from 'sharp';
 import { openDatabase, type DB } from '../src/db/index.js';
 import { applySchemaFromString } from '../src/db/migrate.js';
@@ -16,7 +17,6 @@ import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeRequireToken } from '../src/lib/auth.js';
 import { signToken } from '../src/lib/token.js';
 import { variantFilename } from '../src/lib/variants.js';
-import { makeRateLimiter } from '../src/lib/rateLimit.js';
 
 const TEST_SECRET = 'routes-test-secret';
 
@@ -43,6 +43,14 @@ let app: FastifyInstance;
 let minimalPng: Buffer;
 let jpegWithExif: Buffer;
 
+function rateLimitOptions(max: number) {
+  return {
+    max,
+    timeWindow: 60_000,
+    errorResponseBuilder: () => ({ statusCode: 429, error: 'too many requests' }),
+  };
+}
+
 beforeAll(async () => {
   const tiny = { width: 1, height: 1, channels: 3 as const, background: 'red' };
   minimalPng = await sharp({ create: tiny }).png().toBuffer();
@@ -57,11 +65,11 @@ beforeAll(async () => {
 async function buildApp() {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+  await app.register(rateLimit, rateLimitOptions(100));
   const requireToken = makeRequireToken(TEST_SECRET);
-  const rateLimit = makeRateLimiter({ max: 100, windowMs: 60_000 });
-  registerEventRoutes(app, db, rateLimit);
+  registerEventRoutes(app, db);
   registerMessageRoutes(app, db, requireToken);
-  registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
+  registerPhotoRoutes(app, db, paths, requireToken);
   await app.ready();
 }
 
@@ -125,8 +133,8 @@ describe('GET /api/events/:id/photos', () => {
   it('rate limits repeated photo list requests', async () => {
     await app.close();
     app = Fastify();
-    const rateLimit = makeRateLimiter({ max: 1, windowMs: 60_000 });
-    registerEventRoutes(app, db, rateLimit);
+    await app.register(rateLimit, rateLimitOptions(1));
+    registerEventRoutes(app, db);
     await app.ready();
 
     expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' })).statusCode).toBe(200);
@@ -254,9 +262,9 @@ describe('POST /api/events/:id/photos', () => {
     await app.close();
     app = Fastify();
     await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+    await app.register(rateLimit, rateLimitOptions(1));
     const requireToken = makeRequireToken(TEST_SECRET);
-    const rateLimit = makeRateLimiter({ max: 1, windowMs: 60_000 });
-    registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
+    registerPhotoRoutes(app, db, paths, requireToken);
     await app.ready();
 
     expect((await uploadBuffer(minimalPng, 'one.png', 'image/png')).statusCode).toBe(201);
