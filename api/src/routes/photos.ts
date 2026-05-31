@@ -7,7 +7,6 @@ import { newId } from '../lib/ids.js';
 import {
   publicUrlForPhoto,
   publicUrlForVariant,
-  uploadsDirFor,
   type StoragePaths,
 } from '../lib/storage.js';
 import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
@@ -66,9 +65,17 @@ export function registerPhotoRoutes(
 
       const id = newId();
       const filename = `${id}${result.ext}`;
-      const dir = uploadsDirFor(paths, eventId);
+      const uploadsRoot = path.resolve(paths.uploadsDir);
+      const dir = path.resolve(uploadsRoot, eventId);
+      if (!dir.startsWith(`${uploadsRoot}${path.sep}`)) {
+        return reply.code(404).send({ error: 'event not found' });
+      }
+      const target = path.resolve(dir, filename);
+      if (!target.startsWith(`${dir}${path.sep}`)) {
+        return reply.code(500).send({ error: 'invalid upload path' });
+      }
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, filename), result.buf);
+      fs.writeFileSync(target, result.buf);
       await ensureVariants(paths.variantsDir, eventId, filename, result.buf, result.format);
 
       const createdAt = Date.now();
