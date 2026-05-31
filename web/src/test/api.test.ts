@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { uploadPhoto, postMessage } from '../lib/api';
+import { uploadPhoto, postMessage, fetchPhotos } from '../lib/api';
 
 const okPhoto = {
   id: 'p1',
   event_id: 'remembrance',
   source: 'upload',
   url: '/data/uploads/remembrance/p1.png',
+  url_1024: '/data/variants/remembrance/p1-1024.png',
+  url_320: '/data/variants/remembrance/p1-320.png',
   credit: 'Maya',
   created_at: 1,
   message: null,
@@ -59,5 +61,30 @@ describe('postMessage', () => {
     await expect(postMessage('remembrance', { text: 'hi' })).rejects.toThrow(
       "This link can't be used to upload — scan the QR code at the event.",
     );
+  });
+});
+
+describe('fetchPhotos', () => {
+  it('maps url_1024 and url_320 to url1024 and url320', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'p1',
+          event_id: 'remembrance',
+          source: 'seed',
+          url: '/data/seeds/remembrance/p1.jpg',
+          url_1024: '/data/variants/remembrance/p1-1024.jpg',
+          url_320: '/data/variants/remembrance/p1-320.jpg',
+          credit: 'Maya',
+          created_at: 5,
+        },
+      ],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const photos = await fetchPhotos('remembrance');
+    expect(photos[0]!.url1024).toBe('/data/variants/remembrance/p1-1024.jpg');
+    expect(photos[0]!.url320).toBe('/data/variants/remembrance/p1-320.jpg');
+    expect(photos[0]!.url).toBe('/data/seeds/remembrance/p1.jpg');
   });
 });

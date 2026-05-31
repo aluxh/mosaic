@@ -9,6 +9,7 @@ import { migrate } from './db/migrate.js';
 import { SEED_EVENTS, resolveEventMode, applyEventOverrides } from './lib/seedEvents.js';
 import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
+import { backfillVariants } from './lib/backfillVariants.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
@@ -26,6 +27,7 @@ async function main() {
   fs.mkdirSync(paths.dataDir, { recursive: true });
   fs.mkdirSync(paths.seedsDir, { recursive: true });
   fs.mkdirSync(paths.uploadsDir, { recursive: true });
+  fs.mkdirSync(paths.variantsDir, { recursive: true });
 
   const db = openDatabase(paths.dbFile);
   migrate(db);
@@ -38,6 +40,7 @@ async function main() {
   for (const { filename, reason } of seedResult.skipped_reasons) {
     console.warn(`[seed] skipped ${filename}: ${reason}`);
   }
+  await backfillVariants(db, paths, event.id);
 
   const app = Fastify({ logger: { level: 'info' } });
   await app.register(cors, { origin: true });

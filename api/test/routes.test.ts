@@ -11,10 +11,11 @@ import { upsertEvent } from '../src/db/queries.js';
 import { registerEventRoutes } from '../src/routes/events.js';
 import { registerMessageRoutes } from '../src/routes/messages.js';
 import { registerPhotoRoutes } from '../src/routes/photos.js';
-import { makeStoragePaths, type StoragePaths } from '../src/lib/storage.js';
+import { makeStoragePaths, type StoragePaths, variantsDirFor } from '../src/lib/storage.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeRequireToken } from '../src/lib/auth.js';
 import { signToken } from '../src/lib/token.js';
+import { variantFilename } from '../src/lib/variants.js';
 
 const TEST_SECRET = 'routes-test-secret';
 
@@ -111,10 +112,12 @@ describe('GET /api/events/:id/photos', () => {
     await indexSeedsForEvent(db, paths, 'remembrance');
     const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ url: string; source: string }>;
+    const body = res.json() as Array<{ url: string; url_1024: string; url_320: string; source: string }>;
     expect(body).toHaveLength(1);
     expect(body[0]?.source).toBe('seed');
     expect(body[0]?.url).toBe('/data/seeds/remembrance/one.jpg');
+    expect(body[0]?.url_1024).toBe('/data/variants/remembrance/one-1024.jpg');
+    expect(body[0]?.url_320).toBe('/data/variants/remembrance/one-320.jpg');
   });
 });
 
@@ -200,13 +203,25 @@ describe('POST /api/events/:id/photos', () => {
   it('writes the file to uploads dir and returns photo with URL', async () => {
     const res = await uploadBuffer(minimalPng, 'pic.png', 'image/png');
     expect(res.statusCode).toBe(201);
-    const body = res.json() as { id: string; filename: string; url: string; source: string };
+    const body = res.json() as {
+      id: string;
+      filename: string;
+      url: string;
+      url_1024: string;
+      url_320: string;
+      source: string;
+    };
     expect(body.source).toBe('upload');
     expect(body.filename.endsWith('.png')).toBe(true);
     expect(body.url).toBe(`/data/uploads/remembrance/${body.filename}`);
     expect(
       fs.existsSync(path.join(paths.uploadsDir, 'remembrance', body.filename)),
     ).toBe(true);
+    expect(body.url_1024).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 1024)}`);
+    expect(body.url_320).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 320)}`);
+    const vdir = variantsDirFor(paths, 'remembrance');
+    expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
+    expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
   });
 
   it('accepts JPEG with EXIF, strips metadata on disk', async () => {

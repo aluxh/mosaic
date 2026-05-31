@@ -30,7 +30,7 @@ export function TriptychSlide({ slide, durationMs }: Props) {
               height: i === 1 ? '100%' : '78%',
             }}
           >
-            <KenBurns src={p.url} seed={`${slide.id}-${i}`} durationMs={durationMs} />
+            <KenBurns src={p.url1024} seed={`${slide.id}-${i}`} durationMs={durationMs} />
           </div>
         ))}
       </div>

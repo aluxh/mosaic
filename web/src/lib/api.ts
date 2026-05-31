@@ -17,6 +17,8 @@ interface ApiPhoto {
   event_id: string;
   source: Photo['source'];
   url: string;
+  url_1024: string;
+  url_320: string;
   credit: string;
   created_at: number;
 }
@@ -47,6 +49,8 @@ const toPhoto = (p: ApiPhoto): Photo => ({
   eventId: p.event_id,
   source: p.source,
   url: p.url,
+  url1024: p.url_1024,
+  url320: p.url_320,
   credit: p.credit,
   createdAt: p.created_at,
 });

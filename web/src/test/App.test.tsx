@@ -125,9 +125,9 @@ describe('App renders event theme', () => {
 });
 
 const navPhotos: Photo[] = [
-  { id: 'n1', eventId: 'remembrance', source: 'seed', url: '/n1.jpg', credit: '', createdAt: 0 },
-  { id: 'n2', eventId: 'remembrance', source: 'seed', url: '/n2.jpg', credit: '', createdAt: 0 },
-  { id: 'n3', eventId: 'remembrance', source: 'seed', url: '/n3.jpg', credit: '', createdAt: 0 },
+  { id: 'n1', eventId: 'remembrance', source: 'seed', url: '/n1.jpg', url1024: '/n1-1024.jpg', url320: '/n1-320.jpg', credit: '', createdAt: 0 },
+  { id: 'n2', eventId: 'remembrance', source: 'seed', url: '/n2.jpg', url1024: '/n2-1024.jpg', url320: '/n2-320.jpg', credit: '', createdAt: 0 },
+  { id: 'n3', eventId: 'remembrance', source: 'seed', url: '/n3.jpg', url1024: '/n3-1024.jpg', url320: '/n3-320.jpg', credit: '', createdAt: 0 },
 ];
 
 describe('App arrow key navigation', () => {

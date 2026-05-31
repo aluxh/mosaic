@@ -28,6 +28,8 @@ const seedPhoto: Photo = {
   eventId: 'remembrance',
   source: 'seed',
   url: '/data/seeds/remembrance/photo.jpg',
+  url1024: '/data/variants/remembrance/photo-1024.jpg',
+  url320: '/data/variants/remembrance/photo-320.jpg',
   credit: '',
   createdAt: 0,
 };
@@ -46,11 +48,13 @@ const n1: Photo = {
   eventId: 'remembrance',
   source: 'seed',
   url: '/p1.jpg',
+  url1024: '/p1-1024.jpg',
+  url320: '/p1-320.jpg',
   credit: '',
   createdAt: 0,
 };
-const n2: Photo = { ...n1, id: 'n2', url: '/p2.jpg' };
-const n3: Photo = { ...n1, id: 'n3', url: '/p3.jpg' };
+const n2: Photo = { ...n1, id: 'n2', url: '/p2.jpg', url1024: '/p2-1024.jpg', url320: '/p2-320.jpg' };
+const n3: Photo = { ...n1, id: 'n3', url: '/p3.jpg', url1024: '/p3-1024.jpg', url320: '/p3-320.jpg' };
 const navPhotos = [n1, n2, n3];
 
 describe('paper slide CSS regression', () => {

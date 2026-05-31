@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { DB } from '../db/index.js';
 import { getEvent, listEvents, listMessages, listPhotos } from '../db/queries.js';
-import { publicUrlForPhoto } from '../lib/storage.js';
+import { publicUrlForPhoto, publicUrlForVariant } from '../lib/storage.js';
 
 export function registerEventRoutes(app: FastifyInstance, db: DB): void {
   app.get('/api/events', async () => listEvents(db));
@@ -13,6 +13,8 @@ export function registerEventRoutes(app: FastifyInstance, db: DB): void {
     return photos.map((p) => ({
       ...p,
       url: publicUrlForPhoto(p.source, p.event_id, p.filename),
+      url_1024: publicUrlForVariant(p.event_id, p.filename, 1024),
+      url_320: publicUrlForVariant(p.event_id, p.filename, 320),
     }));
   });
 
