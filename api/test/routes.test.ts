@@ -35,6 +35,9 @@ const SCHEMA = fs
   .map((f) => fs.readFileSync(path.join(migrationsDir, f), 'utf8'))
   .join('\n');
 
+let heicFixture: Buffer | null = null;
+let heicReady = false;
+
 let tmpDir: string;
 let paths: StoragePaths;
 let db: DB;
@@ -60,6 +63,18 @@ beforeAll(async () => {
     .withMetadata({ orientation: 6 })
     .jpeg({ quality: 60 })
     .toBuffer();
+
+  const heicPath = path.resolve(__dirname, 'fixtures', 'iphone.heic');
+  if (fs.existsSync(heicPath)) {
+    heicFixture = fs.readFileSync(heicPath);
+    try {
+      const meta = await sharp(heicFixture).metadata();
+      await sharp(heicFixture).jpeg().toBuffer();
+      heicReady = meta.format === 'heif' && meta.compression === 'hevc';
+    } catch {
+      heicReady = false;
+    }
+  }
 });
 
 async function buildApp() {
@@ -247,6 +262,26 @@ describe('POST /api/events/:id/photos', () => {
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
   });
 
+  it('accepts a HEIC upload, stores it as .jpg with JPEG variants', async (ctx) => {
+    if (!heicReady || !heicFixture) { ctx.skip(); return; }
+    const res = await uploadBuffer(heicFixture, 'IMG_0001.heic', 'image/heic');
+    expect(res.statusCode).toBe(201);
+    const body = res.json() as {
+      filename: string;
+      url: string;
+      url_1024: string;
+      url_320: string;
+    };
+    expect(body.filename.endsWith('.jpg')).toBe(true);
+    expect(body.url).toBe(`/data/uploads/remembrance/${body.filename}`);
+    expect(fs.existsSync(path.join(paths.uploadsDir, 'remembrance', body.filename))).toBe(true);
+    expect(body.url_1024).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 1024)}`);
+    expect(body.url_320).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 320)}`);
+    const vdir = variantsDirFor(paths, 'remembrance');
+    expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
+    expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
+  });
+
   it('rejects unsafe event ids before writing upload files', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -294,7 +329,7 @@ describe('POST /api/events/:id/photos', () => {
     const res = await uploadBuffer(gif, 'anim.gif', 'image/gif');
     expect(res.statusCode).toBe(415);
     expect((res.json() as { error: string }).error).toBe(
-      'unsupported image type — JPEG, PNG, or WebP only',
+      'unsupported image type — JPEG, PNG, WebP, or HEIC only',
     );
   });
 
