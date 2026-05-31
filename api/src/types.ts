@@ -33,4 +33,6 @@ export interface MessageRow {
 
 export interface PhotoResponse extends PhotoRow {
   url: string;
+  url_1024: string;
+  url_320: string;
 }

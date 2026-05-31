@@ -17,6 +17,8 @@ export interface Photo {
   eventId: string;
   source: 'seed' | 'upload';
   url: string;
+  url1024: string;
+  url320: string;
   credit: string;
   createdAt: number;
 }

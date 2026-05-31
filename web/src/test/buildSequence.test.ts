@@ -22,6 +22,8 @@ const makePhotos = (n: number): Photo[] =>
     eventId: 'celebration',
     source: 'seed',
     url: `/data/seeds/celebration/p${i + 1}.jpg`,
+    url1024: `/data/variants/celebration/p${i + 1}-1024.jpg`,
+    url320: `/data/variants/celebration/p${i + 1}-320.jpg`,
     credit: `Guest ${i + 1}`,
     createdAt: 1000 + i,
   }));

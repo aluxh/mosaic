@@ -7,7 +7,7 @@ import { openDatabase, type DB } from '../src/db/index.js';
 import { applySchemaFromString } from '../src/db/migrate.js';
 import { upsertEvent, listPhotos } from '../src/db/queries.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
-import { makeStoragePaths, type StoragePaths } from '../src/lib/storage.js';
+import { makeStoragePaths, type StoragePaths, variantsDirFor } from '../src/lib/storage.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
 const SCHEMA = fs
@@ -154,5 +154,20 @@ describe('indexSeedsForEvent', () => {
     expect(result.skipped_reasons[0]!.reason).toBeTruthy();
     expect(listPhotos(db, 'remembrance')).toHaveLength(1);
     expect(listPhotos(db, 'remembrance')[0]!.filename).toBe('good.jpg');
+  });
+
+  it('writes variants on first index and never re-indexes a variant as a photo', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'a.jpg'), validJpeg);
+
+    await indexSeedsForEvent(db, paths, 'remembrance');
+    const vdir = variantsDirFor(paths, 'remembrance');
+    expect(fs.existsSync(path.join(vdir, 'a-1024.jpg'))).toBe(true);
+    expect(fs.existsSync(path.join(vdir, 'a-320.jpg'))).toBe(true);
+
+    const second = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(second.inserted).toBe(0);
+    expect(listPhotos(db, 'remembrance')).toHaveLength(1);
   });
 });

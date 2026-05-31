@@ -27,13 +27,13 @@ export function DuoSlide({ slide, mode, durationMs }: Props) {
           className="relative overflow-hidden anim-from-left"
           style={{ borderRadius: isCele ? 4 : 2 }}
         >
-          <KenBurns src={a.url} seed={`${slide.id}-a`} durationMs={durationMs} />
+          <KenBurns src={a.url1024} seed={`${slide.id}-a`} durationMs={durationMs} />
         </div>
         <div
           className="relative overflow-hidden anim-from-right anim-delay-1"
           style={{ borderRadius: isCele ? 4 : 2 }}
         >
-          <KenBurns src={b.url} seed={`${slide.id}-b`} durationMs={durationMs} />
+          <KenBurns src={b.url1024} seed={`${slide.id}-b`} durationMs={durationMs} />
         </div>
       </div>
     </div>

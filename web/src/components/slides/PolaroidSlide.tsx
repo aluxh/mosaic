@@ -36,7 +36,7 @@ export function PolaroidSlide({ slide }: Props) {
                 <div className="w-full h-full bg-white p-[6%] pb-[14%] shadow-[0_30px_60px_-20px_rgba(60,30,10,0.45),0_8px_18px_-6px_rgba(60,30,10,0.25)]">
                   <div className="relative w-full h-full overflow-hidden bg-neutral-200">
                     <img
-                      src={p.url}
+                      src={p.url320}
                       alt=""
                       className="absolute inset-0 w-full h-full"
                       style={{ objectFit: 'cover' }}

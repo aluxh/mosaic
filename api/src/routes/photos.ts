@@ -4,8 +4,14 @@ import type { FastifyInstance, preHandlerHookHandler } from 'fastify';
 import type { DB } from '../db/index.js';
 import { getEvent, insertPhoto, insertMessage } from '../db/queries.js';
 import { newId } from '../lib/ids.js';
-import { publicUrlForPhoto, uploadsDirFor, type StoragePaths } from '../lib/storage.js';
+import {
+  publicUrlForPhoto,
+  publicUrlForVariant,
+  uploadsDirFor,
+  type StoragePaths,
+} from '../lib/storage.js';
 import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
+import { ensureVariants } from '../lib/variants.js';
 
 export function registerPhotoRoutes(
   app: FastifyInstance,
@@ -54,6 +60,7 @@ export function registerPhotoRoutes(
       const dir = uploadsDirFor(paths, req.params.id);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, filename), result.buf);
+      await ensureVariants(paths.variantsDir, req.params.id, filename, result.buf, result.format);
 
       const createdAt = Date.now();
       const writePair = db.transaction(() => {
@@ -82,6 +89,8 @@ export function registerPhotoRoutes(
       return reply.code(201).send({
         ...photo,
         url: publicUrlForPhoto('upload', req.params.id, filename),
+        url_1024: publicUrlForVariant(req.params.id, filename, 1024),
+        url_320: publicUrlForVariant(req.params.id, filename, 320),
         message: msg,
       });
     },
