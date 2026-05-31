@@ -13,6 +13,7 @@ import { backfillVariants } from './lib/backfillVariants.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
+import { makeRateLimiter } from './lib/rateLimit.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
@@ -54,9 +55,10 @@ async function main() {
   });
 
   const requireToken = makeRequireToken(tokenSecret);
-  registerEventRoutes(app, db);
+  const rateLimit = makeRateLimiter({ max: 120, windowMs: 60_000 });
+  registerEventRoutes(app, db, rateLimit);
   registerMessageRoutes(app, db, requireToken);
-  registerPhotoRoutes(app, db, paths, requireToken);
+  registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
 
   app.get('/health', async () => ({ ok: true }));
 

@@ -122,6 +122,21 @@ describe('ContributeSheet', () => {
     );
   });
 
+  it('renders HTML-looking server errors as plain text', async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error('<img src=x onerror=alert(1)>'));
+    render(
+      <ContributeSheet open={true} mode="remembrance" onClose={() => {}} onSubmit={onSubmit} />,
+    );
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] } });
+    await user.click(screen.getByRole('button', { name: /add to the remembrance/i }));
+    await waitFor(() =>
+      expect(screen.getByText('<img src=x onerror=alert(1)>')).toBeInTheDocument(),
+    );
+    expect(document.querySelector('.upload-error img')).toBeNull();
+  });
+
   it('clears error when a new file is picked', async () => {
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockRejectedValue(new Error('file too large (max 10MB)'));

@@ -56,6 +56,7 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
   };
 
   const canSubmit = (file !== null || message.trim().length > 0) && !submitting;
+  const previewSrc = preview?.startsWith('blob:') ? preview : null;
 
   const submit = async () => {
     if (!canSubmit) return;
@@ -134,10 +135,10 @@ export function ContributeSheet({ open, mode, onClose, onSubmit }: Props) {
               className="relative border border-dashed border-line rounded-lg overflow-hidden cursor-pointer transition hover:border-ink/60"
               style={{ aspectRatio: '2.4/1' }}
             >
-              {preview ? (
+              {previewSrc ? (
                 <>
                   <img
-                    src={preview}
+                    src={previewSrc}
                     alt=""
                     className="absolute inset-0 w-full h-full"
                     style={{ objectFit: 'cover' }}

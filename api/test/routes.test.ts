@@ -16,6 +16,7 @@ import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeRequireToken } from '../src/lib/auth.js';
 import { signToken } from '../src/lib/token.js';
 import { variantFilename } from '../src/lib/variants.js';
+import { makeRateLimiter } from '../src/lib/rateLimit.js';
 
 const TEST_SECRET = 'routes-test-secret';
 
@@ -57,9 +58,10 @@ async function buildApp() {
   app = Fastify();
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
   const requireToken = makeRequireToken(TEST_SECRET);
-  registerEventRoutes(app, db);
+  const rateLimit = makeRateLimiter({ max: 100, windowMs: 60_000 });
+  registerEventRoutes(app, db, rateLimit);
   registerMessageRoutes(app, db, requireToken);
-  registerPhotoRoutes(app, db, paths, requireToken);
+  registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
   await app.ready();
 }
 
@@ -118,6 +120,19 @@ describe('GET /api/events/:id/photos', () => {
     expect(body[0]?.url).toBe('/data/seeds/remembrance/one.jpg');
     expect(body[0]?.url_1024).toBe('/data/variants/remembrance/one-1024.jpg');
     expect(body[0]?.url_320).toBe('/data/variants/remembrance/one-320.jpg');
+  });
+
+  it('rate limits repeated photo list requests', async () => {
+    await app.close();
+    app = Fastify();
+    const rateLimit = makeRateLimiter({ max: 1, windowMs: 60_000 });
+    registerEventRoutes(app, db, rateLimit);
+    await app.ready();
+
+    expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' })).statusCode).toBe(200);
+    const limited = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect(limited.statusCode).toBe(429);
+    expect((limited.json() as { error: string }).error).toBe('too many requests');
   });
 });
 
@@ -222,6 +237,32 @@ describe('POST /api/events/:id/photos', () => {
     const vdir = variantsDirFor(paths, 'remembrance');
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
+  });
+
+  it('rejects unsafe event ids before writing upload files', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/..%2Fevil/photos',
+      headers: { authorization: validAuth('../evil') },
+      payload: {},
+    });
+    expect(res.statusCode).toBe(404);
+    expect(fs.existsSync(path.join(paths.uploadsDir, 'evil'))).toBe(false);
+  });
+
+  it('rate limits repeated photo uploads', async () => {
+    await app.close();
+    app = Fastify();
+    await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
+    const requireToken = makeRequireToken(TEST_SECRET);
+    const rateLimit = makeRateLimiter({ max: 1, windowMs: 60_000 });
+    registerPhotoRoutes(app, db, paths, requireToken, rateLimit);
+    await app.ready();
+
+    expect((await uploadBuffer(minimalPng, 'one.png', 'image/png')).statusCode).toBe(201);
+    const limited = await uploadBuffer(minimalPng, 'two.png', 'image/png');
+    expect(limited.statusCode).toBe(429);
+    expect((limited.json() as { error: string }).error).toBe('too many requests');
   });
 
   it('accepts JPEG with EXIF, strips metadata on disk', async () => {
