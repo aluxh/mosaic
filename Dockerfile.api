@@ -1,8 +1,23 @@
-FROM node:20-bookworm-slim
+FROM node:20-trixie-slim
 WORKDIR /app
 
-# Native deps for better-sqlite3 + sharp ship as prebuilds for this base image,
-# so no system build tooling required.
+# HEIC (HEVC) decode needs a global libvips with libheif + a libde265 decode
+# plugin; Sharp's bundled prebuilt libvips omits HEVC. Debian trixie ships libvips
+# >= 8.15.3 (Sharp 0.33.5's floor) and a libheif libde265 decode plugin, so we
+# install the distro codec stack and force Sharp to compile its native addon
+# against the global libvips. node-addon-api + node-gyp are installed globally
+# (and exposed via NODE_PATH) because Sharp does not declare them yet needs them
+# to build from source. Decode only — no x265 encoder, since HEIC is transcoded
+# to JPEG on ingest.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      pkg-config python3 make g++ \
+      libvips-dev libheif-plugin-libde265 \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g --no-audit --no-fund node-addon-api@^7 node-gyp
+
+ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
+ENV NODE_PATH=/usr/local/lib/node_modules
+
 COPY tsconfig.base.json ./
 COPY api/package.json api/package-lock.json* ./api/
 RUN cd api && npm install --no-audit --no-fund --omit=dev

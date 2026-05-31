@@ -6,8 +6,6 @@ type IngestResult =
   | { ok: true; buf: Buffer; format: 'jpeg' | 'png' | 'webp'; ext: '.jpg' | '.png' | '.webp' }
   | { ok: false; code: 400 | 413 | 415; error: string };
 
-const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp']);
-
 export async function ingestImage(input: Buffer, maxBytes: number): Promise<IngestResult> {
   if (input.byteLength > maxBytes) {
     return { ok: false, code: 413, error: `file too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` };
@@ -20,21 +18,31 @@ export async function ingestImage(input: Buffer, maxBytes: number): Promise<Inge
     return { ok: false, code: 400, error: 'invalid or corrupt image' };
   }
 
-  if (!meta.format || !ALLOWED_FORMATS.has(meta.format)) {
-    return { ok: false, code: 415, error: 'unsupported image type — JPEG, PNG, or WebP only' };
+  // Sharp reports both HEIC and AVIF as format 'heif'; they differ only by
+  // compression. Accept HEVC-compressed HEIF (real iPhone HEIC); AVIF ('av1')
+  // stays rejected.
+  const isHeic = meta.format === 'heif' && meta.compression === 'hevc';
+  const accepted =
+    meta.format === 'jpeg' || meta.format === 'png' || meta.format === 'webp' || isHeic;
+  if (!accepted) {
+    return { ok: false, code: 415, error: 'unsupported image type — JPEG, PNG, WebP, or HEIC only' };
   }
 
-  const format = meta.format as 'jpeg' | 'png' | 'webp';
+  // The `accepted` gate above is the gatekeeper; the 'else jpeg' arm here covers
+  // both jpeg and heic, so HEIC normalizes to JPEG (rotate + strip EXIF) like the
+  // existing JPEG path.
+  const outFormat: 'jpeg' | 'png' | 'webp' =
+    meta.format === 'png' ? 'png' : meta.format === 'webp' ? 'webp' : 'jpeg';
 
   let buf: Buffer;
-  if (format === 'jpeg') {
+  if (outFormat === 'jpeg') {
     buf = await sharp(input).rotate().jpeg({ quality: 95, mozjpeg: true }).toBuffer();
-  } else if (format === 'png') {
+  } else if (outFormat === 'png') {
     buf = await sharp(input).rotate().png({ compressionLevel: 9 }).toBuffer();
   } else {
     buf = await sharp(input).rotate().webp({ quality: 95 }).toBuffer();
   }
 
-  const ext = format === 'jpeg' ? '.jpg' : format === 'png' ? '.png' : '.webp';
-  return { ok: true, buf, format, ext };
+  const ext = outFormat === 'jpeg' ? '.jpg' : outFormat === 'png' ? '.png' : '.webp';
+  return { ok: true, buf, format: outFormat, ext };
 }
