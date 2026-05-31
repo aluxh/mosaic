@@ -89,6 +89,29 @@ describe('App keyboard shortcuts', () => {
   });
 });
 
+describe('App contribute gate', () => {
+  it('shows the contribute button when a token is present', async () => {
+    window.location.hash = '#t=test';
+    await renderApp();
+    expect(screen.getByText(/add to the wall/i)).toBeInTheDocument();
+  });
+
+  it('hides the contribute button when no token is present', async () => {
+    window.location.hash = '';
+    await renderApp();
+    expect(screen.queryByText(/add to the wall/i)).not.toBeInTheDocument();
+  });
+
+  it('does not open the contribute sheet with "c" when no token is present', async () => {
+    window.location.hash = '';
+    await renderApp();
+    act(() => {
+      fireEvent.keyDown(window, { key: 'c' });
+    });
+    expect(screen.queryByText(/leave a remembrance/i)).not.toBeInTheDocument();
+  });
+});
+
 describe('App renders event theme', () => {
   it('renders the event brand sub from the loaded event', async () => {
     await renderApp();

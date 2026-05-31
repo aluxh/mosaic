@@ -34,6 +34,7 @@ export function App() {
 
   const event = useMemo(() => events[0] ?? null, [events]);
   const token = useMemo(() => readToken() ?? undefined, []);
+  const canContribute = Boolean(token);
 
   useEffect(() => {
     fetchEvents().then(setEvents).catch(console.error);
@@ -54,7 +55,7 @@ export function App() {
 
   useKeyboardShortcuts({
     onTogglePause: () => setPaused((p) => !p),
-    onOpenContribute: () => setContributeOpen(true),
+    onOpenContribute: canContribute ? () => setContributeOpen(true) : undefined,
     onCloseContribute: () => setContributeOpen(false),
     onPrev,
     onNext,
@@ -185,40 +186,42 @@ export function App() {
         </span>
       </div>
 
-      <button
-        onClick={() => setContributeOpen(true)}
-        className="fixed left-7 bottom-20 z-30 group flex items-center gap-3 pl-2 pr-5 py-2 rounded-full backdrop-blur-md hover:scale-[1.02] active:scale-[0.98]"
-        style={{
-          ...chromeStyle,
-          background: 'rgba(255,255,255,0.12)',
-          border: '1px solid rgba(255,255,255,0.25)',
-          transition:
-            'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1), transform 250ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms',
-        }}
-      >
-        <span
-          className="w-9 h-9 rounded-full flex items-center justify-center text-white"
-          style={{ background: 'var(--accent)' }}
+      {canContribute && (
+        <button
+          onClick={() => setContributeOpen(true)}
+          className="fixed left-7 bottom-20 z-30 group flex items-center gap-3 pl-2 pr-5 py-2 rounded-full backdrop-blur-md hover:scale-[1.02] active:scale-[0.98]"
+          style={{
+            ...chromeStyle,
+            background: 'rgba(255,255,255,0.12)',
+            border: '1px solid rgba(255,255,255,0.25)',
+            transition:
+              'opacity 450ms cubic-bezier(0.22, 1, 0.36, 1), transform 250ms cubic-bezier(0.22, 1, 0.36, 1), background 200ms',
+          }}
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
+          <span
+            className="w-9 h-9 rounded-full flex items-center justify-center text-white"
+            style={{ background: 'var(--accent)' }}
           >
-            <path d="M8 3v10M3 8h10" />
-          </svg>
-        </span>
-        <span className="text-white text-left">
-          <span className="block serif text-lg leading-none">Add to the wall</span>
-          <span className="block mono text-[0.58rem] tracking-[0.24em] uppercase opacity-75 mt-1">
-            mosaic.live / {event.shortCode}
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            >
+              <path d="M8 3v10M3 8h10" />
+            </svg>
           </span>
-        </span>
-      </button>
+          <span className="text-white text-left">
+            <span className="block serif text-lg leading-none">Add to the wall</span>
+            <span className="block mono text-[0.58rem] tracking-[0.24em] uppercase opacity-75 mt-1">
+              mosaic.live / {event.shortCode}
+            </span>
+          </span>
+        </button>
+      )}
 
       <div className="fixed right-7 bottom-20 z-30 flex items-center gap-3" style={chromeStyle}>
         <NavButton direction="prev" onClick={onPrev} hidden={navHidden} />
