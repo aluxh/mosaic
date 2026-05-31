@@ -271,7 +271,9 @@ describe('POST /api/events/:id/photos', () => {
       url: string;
       url_1024: string;
       url_320: string;
+      source: string;
     };
+    expect(body.source).toBe('upload');
     expect(body.filename.endsWith('.jpg')).toBe(true);
     expect(body.url).toBe(`/data/uploads/remembrance/${body.filename}`);
     expect(fs.existsSync(path.join(paths.uploadsDir, 'remembrance', body.filename))).toBe(true);
