@@ -6,7 +6,7 @@ import { seedsDirFor, type StoragePaths } from './storage.js';
 import { ingestImage, MAX_FILE_BYTES } from './imageIngest.js';
 import { ensureVariants } from './variants.js';
 
-const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp']);
+const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
 
 export interface IndexResult {
   inserted: number;
@@ -33,8 +33,8 @@ export async function indexSeedsForEvent(
   const skipped_reasons: { filename: string; reason: string }[] = [];
 
   for (const filename of files) {
-    const id = `seed-${eventId}-${filename}`;
-    if (photoExists(db, id)) {
+    const existingId = `seed-${eventId}-${filename}`;
+    if (photoExists(db, existingId)) {
       skipped += 1;
       continue;
     }
@@ -49,19 +49,28 @@ export async function indexSeedsForEvent(
       continue;
     }
 
-    if (!result.buf.equals(buf)) {
+    // HEIC seeds transcode to JPEG: rename to result.ext and drop the original
+    // so the stored photo (and its variants) use the .jpg name. For unchanged
+    // extensions (jpg/png/webp) we just rewrite normalized bytes in place.
+    const ext = path.extname(filename).toLowerCase();
+    let storedName = filename;
+    if (ext !== result.ext) {
+      storedName = filename.slice(0, filename.length - path.extname(filename).length) + result.ext;
+      fs.writeFileSync(path.join(dir, storedName), result.buf);
+      fs.rmSync(file);
+    } else if (!result.buf.equals(buf)) {
       fs.writeFileSync(file, result.buf);
     }
 
     insertPhoto(db, {
-      id,
+      id: `seed-${eventId}-${storedName}`,
       event_id: eventId,
       source: 'seed',
-      filename,
+      filename: storedName,
       credit: 'Host',
       created_at: now(),
     });
-    await ensureVariants(paths.variantsDir, eventId, filename, result.buf, result.format);
+    await ensureVariants(paths.variantsDir, eventId, storedName, result.buf, result.format);
     inserted += 1;
   }
 

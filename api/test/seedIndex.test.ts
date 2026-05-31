@@ -20,12 +20,26 @@ const SCHEMA = fs
 let validJpeg: Buffer;
 let validPng: Buffer;
 let validWebp: Buffer;
+let heicFixture: Buffer | null = null;
+let heicReady = false;
 
 beforeAll(async () => {
   const tiny = { width: 1, height: 1, channels: 3 as const, background: 'red' };
   validJpeg = await sharp({ create: tiny }).jpeg({ quality: 60 }).toBuffer();
   validPng  = await sharp({ create: tiny }).png().toBuffer();
   validWebp = await sharp({ create: tiny }).webp({ quality: 60 }).toBuffer();
+
+  const heicPath = path.resolve(__dirname, 'fixtures', 'iphone.heic');
+  if (fs.existsSync(heicPath)) {
+    heicFixture = fs.readFileSync(heicPath);
+    try {
+      const meta = await sharp(heicFixture).metadata();
+      await sharp(heicFixture).jpeg().toBuffer();
+      heicReady = meta.format === 'heif' && meta.compression === 'hevc';
+    } catch {
+      heicReady = false;
+    }
+  }
 });
 
 let tmpDir: string;
@@ -79,6 +93,32 @@ describe('indexSeedsForEvent', () => {
     expect(result.skipped_reasons).toHaveLength(0);
     const filenames = listPhotos(db, 'remembrance').map((r) => r.filename).sort();
     expect(filenames).toEqual(['a.jpg', 'b.png', 'c.webp']);
+  });
+
+  it('indexes a HEIC seed as a .jpg photo, renames on disk, gets JPEG variants', async (ctx) => {
+    if (!heicReady || !heicFixture) { ctx.skip(); return; }
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'photo.heic'), heicFixture);
+
+    const result = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(result.inserted).toBe(1);
+
+    const rows = listPhotos(db, 'remembrance');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.filename).toBe('photo.jpg');
+
+    expect(fs.existsSync(path.join(dir, 'photo.heic'))).toBe(false);
+    expect(fs.existsSync(path.join(dir, 'photo.jpg'))).toBe(true);
+
+    const vdir = variantsDirFor(paths, 'remembrance');
+    expect(fs.existsSync(path.join(vdir, 'photo-1024.jpg'))).toBe(true);
+    expect(fs.existsSync(path.join(vdir, 'photo-320.jpg'))).toBe(true);
+
+    // Idempotent: a reboot finds only photo.jpg and skips it.
+    const second = await indexSeedsForEvent(db, paths, 'remembrance');
+    expect(second.inserted).toBe(0);
+    expect(listPhotos(db, 'remembrance')).toHaveLength(1);
   });
 
   it('is idempotent — second run inserts nothing new', async () => {
