@@ -146,6 +146,25 @@ describe('indexSeedsForEvent', () => {
     expect(listPhotos(db, 'remembrance')).toHaveLength(1);
   });
 
+  it('skips a transcode whose rename target already exists, without clobbering it', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    // photo.jpeg sorts before photo.jpg, so it is processed first and would
+    // rename to photo.jpg — which already exists. The guard must skip it.
+    fs.writeFileSync(path.join(dir, 'photo.jpeg'), validJpeg);
+    fs.writeFileSync(path.join(dir, 'photo.jpg'), validJpeg);
+
+    const result = await indexSeedsForEvent(db, paths, 'remembrance');
+
+    expect(result.inserted).toBe(1);
+    expect(result.skipped_reasons.some((r) => r.filename === 'photo.jpeg')).toBe(true);
+    const rows = listPhotos(db, 'remembrance');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.filename).toBe('photo.jpg');
+    // The pre-existing photo.jpg was neither overwritten nor deleted.
+    expect(fs.existsSync(path.join(dir, 'photo.jpg'))).toBe(true);
+  });
+
   it('is idempotent — second run inserts nothing new', async () => {
     const dir = path.join(paths.seedsDir, 'remembrance');
     fs.mkdirSync(dir, { recursive: true });

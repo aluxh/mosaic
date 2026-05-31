@@ -56,6 +56,13 @@ export async function indexSeedsForEvent(
     let storedName = filename;
     if (ext !== result.ext) {
       storedName = filename.slice(0, filename.length - ext.length) + result.ext;
+      // Don't clobber an existing sibling (e.g. photo.heic alongside photo.jpg):
+      // skip the transcode rather than silently overwrite the other file.
+      if (fs.existsSync(path.join(dir, storedName))) {
+        skipped += 1;
+        skipped_reasons.push({ filename, reason: `rename target ${storedName} already exists` });
+        continue;
+      }
       fs.writeFileSync(path.join(dir, storedName), result.buf);
       fs.rmSync(file);
     } else if (!result.buf.equals(buf)) {
