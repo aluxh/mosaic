@@ -166,6 +166,19 @@ separate URLs.
 
 ---
 
+## Rate limiting and trusted-proxy configuration
+
+Mosaic rate-limits requests per client IP. When DSM's reverse proxy forwards
+requests, it adds an `X-Forwarded-For` header with the real guest IP. The API
+reads `TRUST_PROXY` to know which hops to trust when unwrapping that header.
+
+**For standard Synology deploys you do not need to set `TRUST_PROXY`.** The
+default covers loopback and private-range addresses (the DSM proxy → Docker
+bridge chain). Only set it if you're placing an additional proxy in front that
+forwards from a public IP — see the examples in `docker-compose.prod.yml`.
+
+---
+
 ## Troubleshooting
 
 **Slideshow shows "Loading event…" forever**
