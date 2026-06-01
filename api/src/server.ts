@@ -14,6 +14,7 @@ import { backfillVariants } from './lib/backfillVariants.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
+import { parseTrustProxy } from './lib/trustProxy.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
@@ -43,7 +44,10 @@ async function main() {
   }
   await backfillVariants(db, paths, event.id);
 
-  const app = Fastify({ logger: { level: 'info' } });
+  const app = Fastify({
+    logger: { level: 'info' },
+    trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  });
   await app.register(cors, { origin: true });
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 },
