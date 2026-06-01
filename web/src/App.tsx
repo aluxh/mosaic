@@ -36,16 +36,15 @@ export function App() {
   const token = useMemo(() => readToken() ?? undefined, []);
   const canContribute = Boolean(token);
 
-  useEffect(() => {
-    fetchEvents().then(setEvents).catch(console.error);
-  }, []);
-
   const refresh = useCallback(async () => {
-    if (!event) return;
-    const [p, m] = await Promise.all([fetchPhotos(event.id), fetchMessages(event.id)]);
-    setPhotosByEvent((prev) => ({ ...prev, [event.id]: p }));
-    setMessagesByEvent((prev) => ({ ...prev, [event.id]: m }));
-  }, [event]);
+    const events = await fetchEvents();
+    setEvents(events);
+    const ev = events[0];
+    if (!ev) return;
+    const [p, m] = await Promise.all([fetchPhotos(ev.id), fetchMessages(ev.id)]);
+    setPhotosByEvent((prev) => ({ ...prev, [ev.id]: p }));
+    setMessagesByEvent((prev) => ({ ...prev, [ev.id]: m }));
+  }, []);
 
   useEffect(() => {
     void refresh();
