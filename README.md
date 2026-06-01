@@ -195,6 +195,10 @@ backfilled on API boot, so no manual migration is needed. Keep
 The API validates upload paths before writing files and applies
 `@fastify/rate-limit` to requests.
 
+**HSTS:** Mosaic does not emit `Strict-Transport-Security`. TLS is terminated
+by your upstream reverse proxy (Synology, Caddy, AWS ALB, etc.); set HSTS
+there, not in the Mosaic container, which only serves internal HTTP.
+
 ### Secrets policy
 
 All secrets — admin password, HMAC signing keys, JWT secrets — **must** be
