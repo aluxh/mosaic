@@ -12,12 +12,14 @@ import {
 import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
 import { ensureVariants } from '../lib/variants.js';
 import { safeEventId } from '../lib/pathSafety.js';
+import type { LiveUpdateBus } from '../lib/liveUpdates.js';
 
 export function registerPhotoRoutes(
   app: FastifyInstance,
   db: DB,
   paths: StoragePaths,
   requireToken: preHandlerHookHandler,
+  liveUpdates?: LiveUpdateBus,
 ): void {
   // codeql[js/missing-rate-limiting]
   app.post<{ Params: { id: string } }>(
@@ -101,6 +103,8 @@ export function registerPhotoRoutes(
         return { photo, msg };
       });
       const { photo, msg } = writePair();
+      liveUpdates?.publish({ type: 'photo_created', eventId, createdAt });
+      if (msg) liveUpdates?.publish({ type: 'message_created', eventId, createdAt });
 
       return reply.code(201).send({
         ...photo,
