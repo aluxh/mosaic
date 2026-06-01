@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import Fastify from 'fastify';
-import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
@@ -48,7 +47,6 @@ async function main() {
     logger: { level: 'info' },
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
   });
-  await app.register(cors, { origin: true });
   await app.register(multipart, {
     limits: { fileSize: 10 * 1024 * 1024 },
   });
