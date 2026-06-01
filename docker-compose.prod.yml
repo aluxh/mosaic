@@ -35,10 +35,10 @@ services:
       # BASE_URL: "https://your-event.example.com"
       # Optional: reverse-proxy trust for deriving the real client IP used by
       # rate limiting. Unset = trust loopback + private ranges (correct for
-      # this bundled compose). Override to match your topology:
-      #   TRUST_PROXY: "true"          # trust all (e.g. Heroku, single proxy)
-      #   TRUST_PROXY: "1"             # trust N hops
-      #   TRUST_PROXY: "10.0.0.0/8"    # trust specific proxy CIDRs (AWS ALB/VPC)
+      # this bundled compose). Uncomment and set to match your topology:
+      #   "true"          — trust all hops (e.g. Heroku, single-proxy setups)
+      #   "1"             — trust exactly N hops
+      #   "10.0.0.0/8"    — trust specific proxy CIDRs (e.g. AWS ALB/VPC)
       # SECURITY: safe only because the api uses `expose`, never `ports` — it is
       # unreachable except through the proxy, so X-Forwarded-For can't be forged.
       # TRUST_PROXY: "true"
