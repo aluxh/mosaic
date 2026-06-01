@@ -12,9 +12,10 @@ import { upsertEvent } from '../src/db/queries.js';
 import { registerEventRoutes } from '../src/routes/events.js';
 import { registerMessageRoutes } from '../src/routes/messages.js';
 import { registerPhotoRoutes } from '../src/routes/photos.js';
-import { makeStoragePaths, type StoragePaths, variantsDirFor } from '../src/lib/storage.js';
+import { makeStoragePaths, type StoragePaths, variantsDirFor, uploadsDirFor } from '../src/lib/storage.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
-import { makeRequireToken } from '../src/lib/auth.js';
+import { makeRequireToken, makeRequireAdmin } from '../src/lib/auth.js';
+import { registerAdminRoutes } from '../src/routes/admin.js';
 import { signToken } from '../src/lib/token.js';
 import { variantFilename } from '../src/lib/variants.js';
 
@@ -22,6 +23,8 @@ const TEST_SECRET = 'routes-test-secret';
 
 const validAuth = (eid = 'remembrance'): string =>
   `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) + 3600 }, TEST_SECRET)}`;
+const adminAuth = (eid = 'remembrance'): string =>
+  `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) + 3600, role: 'admin' }, TEST_SECRET)}`;
 const expiredAuth = (eid = 'remembrance'): string =>
   `Bearer ${signToken({ eid, exp: Math.floor(Date.now() / 1000) - 10 }, TEST_SECRET)}`;
 const badSigAuth = (eid = 'remembrance'): string =>
@@ -85,6 +88,7 @@ async function buildApp() {
   registerEventRoutes(app, db);
   registerMessageRoutes(app, db, requireToken);
   registerPhotoRoutes(app, db, paths, requireToken);
+  registerAdminRoutes(app, db, paths, makeRequireAdmin(TEST_SECRET));
   await app.ready();
 }
 
@@ -513,5 +517,98 @@ describe('write-endpoint token enforcement', () => {
   it('reads stay public — GET photos and messages need no token', async () => {
     expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' })).statusCode).toBe(200);
+  });
+});
+
+describe('admin routes', () => {
+  // Helper: create a photo row with on-disk original (upload) + both variant files.
+  async function seedUploadPhoto(id: string, withMessage = false) {
+    const filename = `${id}.jpg`;
+    const buf = await sharp({ create: { width: 40, height: 40, channels: 3 as const, background: 'green' } }).jpeg().toBuffer();
+    const dir = uploadsDirFor(paths, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, filename), buf);
+    const vdir = variantsDirFor(paths, 'remembrance');
+    fs.mkdirSync(vdir, { recursive: true });
+    fs.writeFileSync(path.join(vdir, variantFilename(filename, 1024)), buf);
+    fs.writeFileSync(path.join(vdir, variantFilename(filename, 320)), buf);
+    db.prepare('INSERT INTO photos (id, event_id, source, filename, credit, created_at, hidden) VALUES (?,?,?,?,?,?,0)')
+      .run(id, 'remembrance', 'upload', filename, 'A', Date.now());
+    if (withMessage) {
+      db.prepare('INSERT INTO messages (id, event_id, name, text, created_at, photo_id) VALUES (?,?,?,?,?,?)')
+        .run(`msg-${id}`, 'remembrance', 'A', 'linked', Date.now(), id);
+    }
+    return filename;
+  }
+
+  it('all admin routes return 401 with no token and with a guest token', async () => {
+    await seedUploadPhoto('a1');
+    const cases: Array<[string, string, object?]> = [
+      ['GET', '/api/events/remembrance/admin/photos'],
+      ['PATCH', '/api/events/remembrance/admin/photos/a1', { hidden: true }],
+      ['DELETE', '/api/events/remembrance/admin/photos/a1'],
+      ['PATCH', '/api/events/remembrance/admin/settings', { transitionStyle: 'cinematic' }],
+    ];
+    for (const [method, url, payload] of cases) {
+      const noTok = await app.inject({ method: method as 'GET', url, payload });
+      expect(noTok.statusCode, `${method} ${url} no-token`).toBe(401);
+      const guest = await app.inject({ method: method as 'GET', url, payload, headers: { authorization: validAuth() } });
+      expect(guest.statusCode, `${method} ${url} guest`).toBe(401);
+    }
+  });
+
+  it('GET admin/photos returns all photos incl. hidden, with source + hidden + urls', async () => {
+    await seedUploadPhoto('a1');
+    db.prepare('UPDATE photos SET hidden = 1 WHERE id = ?').run('a1');
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Array<{ id: string; hidden: number; source: string; url: string; url_320: string }>;
+    expect(body[0]).toMatchObject({ id: 'a1', hidden: 1, source: 'upload' });
+    expect(body[0]?.url_320).toContain('320');
+  });
+
+  it('PATCH admin/photos toggles visibility; public list reflects it', async () => {
+    await seedUploadPhoto('a1');
+    const hide = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/photos/a1', payload: { hidden: true }, headers: { authorization: adminAuth() } });
+    expect(hide.statusCode).toBe(200);
+    const pub = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect((pub.json() as unknown[]).length).toBe(0);
+    const show = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/photos/a1', payload: { hidden: false }, headers: { authorization: adminAuth() } });
+    expect(show.statusCode).toBe(200);
+    const pub2 = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect((pub2.json() as unknown[]).length).toBe(1);
+  });
+
+  it('PATCH admin/photos for a photo not in the event 404s', async () => {
+    const res = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/photos/missing', payload: { hidden: true }, headers: { authorization: adminAuth() } });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('DELETE removes the row, linked message, original file, and both variants; second delete 404s', async () => {
+    const filename = await seedUploadPhoto('a1', true);
+    const original = path.join(uploadsDirFor(paths, 'remembrance'), filename);
+    const v1024 = path.join(variantsDirFor(paths, 'remembrance'), variantFilename(filename, 1024));
+    const v320 = path.join(variantsDirFor(paths, 'remembrance'), variantFilename(filename, 320));
+    expect(fs.existsSync(original)).toBe(true);
+
+    const res = await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/photos/a1', headers: { authorization: adminAuth() } });
+    expect(res.statusCode).toBe(200);
+    expect(fs.existsSync(original)).toBe(false);
+    expect(fs.existsSync(v1024)).toBe(false);
+    expect(fs.existsSync(v320)).toBe(false);
+    const msgs = db.prepare('SELECT count(*) AS n FROM messages WHERE photo_id = ?').get('a1') as { n: number };
+    expect(msgs.n).toBe(0);
+
+    const again = await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/photos/a1', headers: { authorization: adminAuth() } });
+    expect(again.statusCode).toBe(404);
+  });
+
+  it('PATCH admin/settings rejects an invalid transitionStyle (400) and accepts valid ones', async () => {
+    const bad = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/settings', payload: { transitionStyle: 'sparkles' }, headers: { authorization: adminAuth() } });
+    expect(bad.statusCode).toBe(400);
+    for (const style of ['default', 'cinematic']) {
+      const ok = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/settings', payload: { transitionStyle: style }, headers: { authorization: adminAuth() } });
+      expect(ok.statusCode).toBe(200);
+    }
   });
 });

@@ -11,13 +11,14 @@ import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { backfillVariants } from './lib/backfillVariants.js';
 import { makeStoragePaths } from './lib/storage.js';
-import { requireTokenSecret, makeRequireToken } from './lib/auth.js';
+import { requireTokenSecret, makeRequireToken, makeRequireAdmin } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
 import { parseTrustProxy } from './lib/trustProxy.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
 import { registerStreamRoutes } from './routes/stream.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import { createLiveUpdateBus } from './lib/liveUpdates.js';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), '..', 'data');
@@ -68,6 +69,7 @@ async function main() {
   registerStreamRoutes(app, db, liveUpdates);
   registerMessageRoutes(app, db, requireToken, liveUpdates);
   registerPhotoRoutes(app, db, paths, requireToken, liveUpdates);
+  registerAdminRoutes(app, db, paths, makeRequireAdmin(tokenSecret), liveUpdates);
 
   app.get('/health', async () => ({ ok: true }));
 
