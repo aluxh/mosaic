@@ -14,6 +14,7 @@ const remembranceEvent: Event = {
   invitation: 'Share a memory.',
   brandSub: 'In remembrance · Theodore',
   shortCode: '4F8K',
+  transitionStyle: 'default',
 };
 
 beforeEach(() => {

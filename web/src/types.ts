@@ -1,4 +1,5 @@
 export type Mode = 'celebration' | 'remembrance';
+export type TransitionStyle = 'default' | 'cinematic';
 
 export interface Event {
   id: string;
@@ -10,6 +11,7 @@ export interface Event {
   invitation: string;
   brandSub: string;
   shortCode: string;
+  transitionStyle: TransitionStyle;
 }
 
 export interface Photo {
@@ -30,6 +32,10 @@ export interface Message {
   text: string;
   createdAt: number;
   photoId: string | null;
+}
+
+export interface AdminPhoto extends Photo {
+  hidden: boolean;
 }
 
 export type SlideSpec =

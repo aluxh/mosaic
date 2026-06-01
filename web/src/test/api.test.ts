@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { uploadPhoto, postMessage, fetchPhotos } from '../lib/api';
+import { uploadPhoto, postMessage, fetchPhotos, fetchEvents } from '../lib/api';
 
 const okPhoto = {
   id: 'p1',
@@ -86,5 +86,19 @@ describe('fetchPhotos', () => {
     expect(photos[0]!.url1024).toBe('/data/variants/remembrance/p1-1024.jpg');
     expect(photos[0]!.url320).toBe('/data/variants/remembrance/p1-320.jpg');
     expect(photos[0]!.url).toBe('/data/seeds/remembrance/p1.jpg');
+  });
+});
+
+describe('fetchEvents', () => {
+  it('maps transition_style to transitionStyle', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => [{
+        id: 'e1', mode: 'remembrance', eyebrow: '', title: '', dateline: '', place: '',
+        invitation: '', brand_sub: '', short_code: 'X', transition_style: 'cinematic',
+      }],
+    })) as unknown as typeof fetch);
+    const [ev] = await fetchEvents();
+    expect(ev.transitionStyle).toBe('cinematic');
   });
 });
