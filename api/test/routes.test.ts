@@ -105,6 +105,7 @@ beforeEach(async () => {
     invitation: 'invite',
     brand_sub: 'sub',
     short_code: 'X1',
+    transition_style: 'default',
   });
   await buildApp();
 });

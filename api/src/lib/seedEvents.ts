@@ -24,6 +24,7 @@ export const SEED_EVENTS: Record<Mode, EventRow> = {
     invitation: 'Drop a photo. Leave a note. Stay a while.',
     brand_sub: 'Lina & Marco · Sept 14',
     short_code: '4F8K',
+    transition_style: 'default',
   },
   remembrance: {
     id: 'remembrance',
@@ -35,6 +36,7 @@ export const SEED_EVENTS: Record<Mode, EventRow> = {
     invitation: 'Share a memory — a moment, a phrase, a song he loved.',
     brand_sub: 'In remembrance · Theodore',
     short_code: '4F8K',
+    transition_style: 'default',
   },
 };
 

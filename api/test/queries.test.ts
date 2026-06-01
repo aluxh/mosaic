@@ -10,6 +10,12 @@ import {
   listMessages,
   insertPhoto,
   listPhotos,
+  listAdminPhotos,
+  setPhotoHidden,
+  getPhotoForEvent,
+  deletePhotoCascade,
+  updateTransitionStyle,
+  getEvent,
 } from '../src/db/queries.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
@@ -35,6 +41,7 @@ beforeEach(() => {
     invitation: 'invite',
     brand_sub: 'sub',
     short_code: 'X1',
+    transition_style: 'default',
   });
 });
 
@@ -60,6 +67,7 @@ describe('events queries', () => {
       invitation: 'i',
       brand_sub: 's',
       short_code: 'X2',
+      transition_style: 'default',
     });
     const [row] = listEvents(db);
     expect(row?.eyebrow).toBe('changed');
@@ -141,5 +149,49 @@ describe('photos queries', () => {
     });
     const rows = listPhotos(db, 'remembrance');
     expect(rows.map((r) => r.id)).toEqual(['p1', 'p2']);
+  });
+});
+
+describe('admin curation queries', () => {
+  beforeEach(() => {
+    insertPhoto(db, { id: 'p1', event_id: 'remembrance', source: 'seed', filename: 'a.jpg', credit: 'A', created_at: 100 });
+    insertPhoto(db, { id: 'p2', event_id: 'remembrance', source: 'upload', filename: 'b.jpg', credit: 'B', created_at: 200 });
+  });
+
+  it('listPhotos excludes hidden rows; listAdminPhotos includes them', () => {
+    setPhotoHidden(db, 'remembrance', 'p1', true);
+    expect(listPhotos(db, 'remembrance').map((r) => r.id)).toEqual(['p2']);
+    expect(listAdminPhotos(db, 'remembrance').map((r) => r.id)).toEqual(['p1', 'p2']);
+  });
+
+  it('setPhotoHidden flips the flag and reports update vs no-op', () => {
+    expect(setPhotoHidden(db, 'remembrance', 'p1', true)).toBe(true);
+    expect(getPhotoForEvent(db, 'remembrance', 'p1')?.hidden).toBe(1);
+    expect(setPhotoHidden(db, 'remembrance', 'missing', true)).toBe(false);
+    expect(setPhotoHidden(db, 'celebration', 'p1', true)).toBe(false); // wrong event
+  });
+
+  it('getPhotoForEvent returns the row only for the matching event', () => {
+    expect(getPhotoForEvent(db, 'remembrance', 'p2')?.filename).toBe('b.jpg');
+    expect(getPhotoForEvent(db, 'celebration', 'p2')).toBeUndefined();
+  });
+
+  it('deletePhotoCascade removes the photo + linked messages in one tx and returns the row', () => {
+    insertMessage(db, { id: 'm1', event_id: 'remembrance', name: 'A', text: 'linked', created_at: 5, photo_id: 'p1' });
+    insertMessage(db, { id: 'm2', event_id: 'remembrance', name: 'B', text: 'standalone', created_at: 6 });
+    const deleted = deletePhotoCascade(db, 'remembrance', 'p1');
+    expect(deleted).toMatchObject({ filename: 'a.jpg', source: 'seed' });
+    expect(getPhotoForEvent(db, 'remembrance', 'p1')).toBeUndefined();
+    expect(listMessages(db, 'remembrance').map((m) => m.id)).toEqual(['m2']);
+  });
+
+  it('deletePhotoCascade returns undefined for a photo not in the event', () => {
+    expect(deletePhotoCascade(db, 'celebration', 'p1')).toBeUndefined();
+    expect(getPhotoForEvent(db, 'remembrance', 'p1')).toBeDefined();
+  });
+
+  it('updateTransitionStyle persists a valid value', () => {
+    updateTransitionStyle(db, 'remembrance', 'cinematic');
+    expect(getEvent(db, 'remembrance')?.transition_style).toBe('cinematic');
   });
 });
