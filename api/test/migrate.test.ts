@@ -33,4 +33,31 @@ describe('migrate', () => {
     expect(count()).toBe(first);
     db.close();
   });
+
+  it('adds photos.hidden defaulting to 0 and events.transition_style defaulting to default', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    const photoCols = (
+      db.prepare('PRAGMA table_info(photos)').all() as { name: string; dflt_value: string | null }[]
+    );
+    const eventCols = (
+      db.prepare('PRAGMA table_info(events)').all() as { name: string; dflt_value: string | null }[]
+    );
+    const hidden = photoCols.find((c) => c.name === 'hidden');
+    const style = eventCols.find((c) => c.name === 'transition_style');
+    expect(hidden?.dflt_value).toBe('0');
+    expect(style?.dflt_value).toBe("'default'");
+    db.close();
+  });
+
+  it('records 003_admin_curation.sql exactly once', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    migrate(db);
+    const rows = (
+      db.prepare("SELECT count(*) AS n FROM schema_migrations WHERE filename = '003_admin_curation.sql'").get() as { n: number }
+    ).n;
+    expect(rows).toBe(1);
+    db.close();
+  });
 });

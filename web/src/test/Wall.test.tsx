@@ -21,6 +21,7 @@ const seedEvent: Event = {
   invitation: 'Share a memory.',
   brandSub: 'In remembrance · Test',
   shortCode: '4F8K',
+  transitionStyle: 'default',
 };
 
 const seedPhoto: Photo = {
@@ -189,6 +190,23 @@ describe('WallHandle ref navigation', () => {
     expect(container.textContent).toContain('01 /');
     act(() => { ref.current!.prev(); });
     expect(container.textContent).toContain('01 /');
+  });
+
+  it('applies the cinematic enter class when event.transitionStyle is cinematic', () => {
+    const ev = { ...seedEvent, transitionStyle: 'cinematic' as const };
+    const { container } = render(
+      <Wall photos={navPhotos} messages={[]} mode="remembrance" paused event={ev} />,
+    );
+    expect(container.querySelector('.slide-cine-remb')).toBeTruthy();
+  });
+
+  it('uses the default enter class when transitionStyle is default', () => {
+    const ev = { ...seedEvent, transitionStyle: 'default' as const };
+    const { container } = render(
+      <Wall photos={navPhotos} messages={[]} mode="remembrance" paused event={ev} />,
+    );
+    expect(container.querySelector('.slide-remb')).toBeTruthy();
+    expect(container.querySelector('.slide-cine-remb')).toBeFalsy();
   });
 
   it('prev() at last index goes to second-to-last', () => {

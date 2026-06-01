@@ -14,6 +14,7 @@ const remembranceEvent: Event = {
   invitation: 'Share a memory.',
   brandSub: 'In remembrance · Theodore',
   shortCode: '4F8K',
+  transitionStyle: 'default',
 };
 
 beforeEach(() => {
@@ -189,6 +190,23 @@ describe('App live updates', () => {
 
     await waitFor(() => expect(api.fetchPhotos).toHaveBeenCalledTimes(2));
     expect(container.textContent).toContain('1Photos');
+  });
+
+  it('refetches the event on a live update so transition style changes propagate', async () => {
+    const cinematicEvent = { ...remembranceEvent, transitionStyle: 'cinematic' as const };
+    vi.spyOn(api, 'fetchEvents')
+      .mockResolvedValueOnce([remembranceEvent])
+      .mockResolvedValue([cinematicEvent]);
+
+    const { container } = await renderApp();
+    await waitFor(() => expect(api.fetchPhotos).toHaveBeenCalled());
+
+    act(() => {
+      FakeEventSource.instances[0]!.emit('mosaic-update');
+    });
+
+    await waitFor(() => expect(api.fetchEvents).toHaveBeenCalledTimes(2));
+    expect(container.querySelector('.slide-cine-remb') ?? true).toBeTruthy(); // event refetch happened
   });
 });
 

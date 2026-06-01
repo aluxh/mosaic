@@ -43,4 +43,14 @@ describe('live update bus', () => {
     expect(() => bus.publish(update('remembrance', 'message_created'))).not.toThrow();
     expect(received).toEqual([update('remembrance', 'message_created')]);
   });
+
+  it('delivers admin mutation update types to subscribers', () => {
+    const bus = createLiveUpdateBus();
+    const received: string[] = [];
+    bus.subscribe('e1', (u) => received.push(u.type));
+    bus.publish({ type: 'photo_updated', eventId: 'e1', createdAt: 1 });
+    bus.publish({ type: 'photo_deleted', eventId: 'e1', createdAt: 2 });
+    bus.publish({ type: 'event_updated', eventId: 'e1', createdAt: 3 });
+    expect(received).toEqual(['photo_updated', 'photo_deleted', 'event_updated']);
+  });
 });

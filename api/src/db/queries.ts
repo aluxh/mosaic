@@ -3,8 +3,8 @@ import type { EventRow, MessageRow, PhotoRow, PhotoSource } from '../types.js';
 
 export function upsertEvent(db: DB, e: EventRow): void {
   db.prepare(
-    `INSERT INTO events (id, mode, eyebrow, title, dateline, place, invitation, brand_sub, short_code)
-     VALUES (@id, @mode, @eyebrow, @title, @dateline, @place, @invitation, @brand_sub, @short_code)
+    `INSERT INTO events (id, mode, eyebrow, title, dateline, place, invitation, brand_sub, short_code, transition_style)
+     VALUES (@id, @mode, @eyebrow, @title, @dateline, @place, @invitation, @brand_sub, @short_code, @transition_style)
      ON CONFLICT(id) DO UPDATE SET
        mode = excluded.mode,
        eyebrow = excluded.eyebrow,
@@ -49,7 +49,7 @@ export function photoExists(db: DB, id: string): boolean {
 
 export function listPhotos(db: DB, eventId: string): PhotoRow[] {
   return db
-    .prepare('SELECT * FROM photos WHERE event_id = ? ORDER BY created_at ASC')
+    .prepare('SELECT * FROM photos WHERE event_id = ? AND hidden = 0 ORDER BY created_at ASC')
     .all(eventId) as PhotoRow[];
 }
 
@@ -75,4 +75,38 @@ export function listMessages(db: DB, eventId: string): MessageRow[] {
   return db
     .prepare('SELECT * FROM messages WHERE event_id = ? ORDER BY created_at ASC')
     .all(eventId) as MessageRow[];
+}
+
+export function listAdminPhotos(db: DB, eventId: string): PhotoRow[] {
+  return db
+    .prepare('SELECT * FROM photos WHERE event_id = ? ORDER BY created_at ASC')
+    .all(eventId) as PhotoRow[];
+}
+
+export function getPhotoForEvent(db: DB, eventId: string, photoId: string): PhotoRow | undefined {
+  return db
+    .prepare('SELECT * FROM photos WHERE id = ? AND event_id = ?')
+    .get(photoId, eventId) as PhotoRow | undefined;
+}
+
+export function setPhotoHidden(db: DB, eventId: string, photoId: string, hidden: boolean): boolean {
+  const info = db
+    .prepare('UPDATE photos SET hidden = ? WHERE id = ? AND event_id = ?')
+    .run(hidden ? 1 : 0, photoId, eventId);
+  return info.changes > 0;
+}
+
+export function deletePhotoCascade(db: DB, eventId: string, photoId: string): PhotoRow | undefined {
+  const tx = db.transaction(() => {
+    const row = getPhotoForEvent(db, eventId, photoId);
+    if (!row) return undefined;
+    db.prepare('DELETE FROM messages WHERE photo_id = ? AND event_id = ?').run(photoId, eventId);
+    db.prepare('DELETE FROM photos WHERE id = ? AND event_id = ?').run(photoId, eventId);
+    return row;
+  });
+  return tx();
+}
+
+export function updateTransitionStyle(db: DB, eventId: string, style: string): void {
+  db.prepare('UPDATE events SET transition_style = ? WHERE id = ?').run(style, eventId);
 }

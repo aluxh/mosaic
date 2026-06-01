@@ -92,9 +92,14 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
   );
   const [idx, setIdx] = useState(0);
 
+  const cinematic = event?.transitionStyle === 'cinematic';
   const slideMs = mode === 'celebration' ? 4200 : 7200;
-  const enterClass = mode === 'celebration' ? 'slide-cele' : 'slide-remb';
-  const fadeDur = mode === 'celebration' ? 700 : 1400;
+  const enterClass = cinematic
+    ? (mode === 'celebration' ? 'slide-cine-cele' : 'slide-cine-remb')
+    : (mode === 'celebration' ? 'slide-cele' : 'slide-remb');
+  const fadeDur = cinematic
+    ? (mode === 'celebration' ? 600 : 1200)
+    : (mode === 'celebration' ? 700 : 1400);
 
   useEffect(() => {
     setIdx(0);

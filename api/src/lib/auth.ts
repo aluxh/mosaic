@@ -8,6 +8,7 @@ mint-token\` to generate the QR URL guests will scan. See README →
 
 const SCAN_MSG = "This link can't be used to upload — scan the QR code at the event.";
 const EXPIRED_MSG = 'This event is no longer accepting uploads — ask the host for a new code.';
+const NOT_ADMIN_MSG = "This link can't curate the wall.";
 
 export function requireTokenSecret(env: NodeJS.ProcessEnv): string {
   const secret = env.TOKEN_SECRET;
@@ -29,6 +30,21 @@ export function makeRequireToken(secret: string): preHandlerHookHandler {
     if (!result.ok) {
       const msg = result.reason === 'expired' ? EXPIRED_MSG : SCAN_MSG;
       return reply.code(401).send({ error: msg });
+    }
+  };
+}
+
+export function makeRequireAdmin(secret: string): preHandlerHookHandler {
+  return async (req, reply) => {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return reply.code(401).send({ error: NOT_ADMIN_MSG });
+    }
+    const token = auth.slice('Bearer '.length);
+    const eventId = (req.params as { id: string }).id;
+    const result = verifyToken(token, secret, eventId);
+    if (!result.ok || result.payload.role !== 'admin') {
+      return reply.code(401).send({ error: NOT_ADMIN_MSG });
     }
   };
 }

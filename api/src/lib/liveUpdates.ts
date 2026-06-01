@@ -1,4 +1,9 @@
-export type LiveUpdateType = 'photo_created' | 'message_created';
+export type LiveUpdateType =
+  | 'photo_created'
+  | 'message_created'
+  | 'photo_updated'
+  | 'photo_deleted'
+  | 'event_updated';
 
 export interface LiveUpdate {
   type: LiveUpdateType;

@@ -1,5 +1,6 @@
 export type Mode = 'celebration' | 'remembrance';
 export type PhotoSource = 'seed' | 'upload';
+export type TransitionStyle = 'default' | 'cinematic';
 
 export interface EventRow {
   id: string;
@@ -11,6 +12,7 @@ export interface EventRow {
   invitation: string;
   brand_sub: string;
   short_code: string;
+  transition_style: string;
 }
 
 export interface PhotoRow {
@@ -20,6 +22,7 @@ export interface PhotoRow {
   filename: string;
   credit: string;
   created_at: number;
+  hidden: number;
 }
 
 export interface MessageRow {

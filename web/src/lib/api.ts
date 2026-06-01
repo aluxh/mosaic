@@ -10,6 +10,7 @@ interface ApiEvent {
   invitation: string;
   brand_sub: string;
   short_code: string;
+  transition_style: string;
 }
 
 interface ApiPhoto {
@@ -42,6 +43,7 @@ const toEvent = (e: ApiEvent): Event => ({
   invitation: e.invitation,
   brandSub: e.brand_sub,
   shortCode: e.short_code,
+  transitionStyle: e.transition_style === 'cinematic' ? 'cinematic' : 'default',
 });
 
 const toPhoto = (p: ApiPhoto): Photo => ({
