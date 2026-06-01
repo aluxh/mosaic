@@ -192,23 +192,15 @@ backfilled on API boot, so no manual migration is needed. Keep
 
 ### Upload safety & rate limiting
 
-The API validates upload paths before writing files and applies
-`@fastify/rate-limit` per IP. Rate limiting uses the real client IP resolved
-from `X-Forwarded-For`, controlled by the `TRUST_PROXY` env var on the `api`
-service. The default (loopback + private ranges) covers the standard Synology
-DSM reverse proxy setup — leave `TRUST_PROXY` unset unless you're deploying
-behind AWS ALB, Heroku, or another proxy with a non-private forwarding IP
-(see `docker-compose.prod.yml` for examples).
+The API validates upload paths before writing files and applies per-IP rate
+limiting. The `TRUST_PROXY` env var on the `api` service controls how the real
+client IP is resolved behind a reverse proxy. The default covers the standard
+Synology DSM reverse proxy setup — leave `TRUST_PROXY` unset unless you're
+deploying behind a proxy that forwards from a public IP (see
+`docker-compose.prod.yml` for examples).
 
-### Security headers
-
-nginx emits `Content-Security-Policy`, `X-Content-Type-Options`,
-`Referrer-Policy`, `X-Frame-Options`, and `Permissions-Policy` on every
-response, including `/data/` image requests.
-
-**HSTS:** Mosaic does not emit `Strict-Transport-Security`. TLS is terminated
-by your upstream reverse proxy (Synology, Caddy, AWS ALB, etc.); set HSTS
-there, not in the Mosaic container, which only serves internal HTTP.
+**HSTS:** Set `Strict-Transport-Security` at your upstream TLS-terminating
+proxy (Synology, Caddy, AWS ALB, etc.), not in the Mosaic container.
 
 ### Secrets policy
 
