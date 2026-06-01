@@ -154,3 +154,44 @@ describe('formatBootToken', () => {
     expect(v.ok).toBe(true);
   });
 });
+
+describe('admin role claim', () => {
+  const secret = 'role-secret';
+
+  it('round-trips a role: admin payload through sign/verify', () => {
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const token = signToken({ eid: 'remembrance', exp, role: 'admin' }, secret);
+    const res = verifyToken(token, secret, 'remembrance');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.payload.role).toBe('admin');
+  });
+
+  it('omits role for a guest token', () => {
+    const exp = Math.floor(Date.now() / 1000) + 3600;
+    const token = signToken({ eid: 'remembrance', exp }, secret);
+    const res = verifyToken(token, secret, 'remembrance');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.payload.role).toBeUndefined();
+  });
+
+  it('mintToken with role: admin produces an /admin#t= URL', () => {
+    const result = mintToken({
+      secret,
+      eid: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://ev.example',
+      role: 'admin',
+    });
+    expect(result.url).toBe(`https://ev.example/admin#t=${result.token}`);
+  });
+
+  it('mintToken without role keeps the guest /#t= URL', () => {
+    const result = mintToken({
+      secret,
+      eid: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://ev.example',
+    });
+    expect(result.url).toBe(`https://ev.example/#t=${result.token}`);
+  });
+});

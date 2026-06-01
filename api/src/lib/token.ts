@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 export interface TokenPayload {
   eid: string;
   exp: number; // unix seconds
+  role?: 'admin';
 }
 
 export type VerifyResult =
@@ -62,7 +63,7 @@ export function verifyToken(
   if (p.eid !== eventId) return { ok: false, reason: 'wrong_event' };
   if (p.exp <= now) return { ok: false, reason: 'expired' };
 
-  return { ok: true, payload: { eid: p.eid, exp: p.exp } };
+  return { ok: true, payload: { eid: p.eid, exp: p.exp, ...(p.role === 'admin' ? { role: 'admin' as const } : {}) } };
 }
 
 export function mintToken(opts: {
@@ -70,16 +71,21 @@ export function mintToken(opts: {
   eid: string;
   ttlDays: number;
   baseUrl?: string;
+  role?: 'admin';
   now?: number; // unix ms; injectable for tests
 }): MintResult {
   const nowMs = opts.now ?? Date.now();
   const exp = Math.floor(nowMs / 1000) + opts.ttlDays * 86400;
-  const token = signToken({ eid: opts.eid, exp }, opts.secret);
+  const token = signToken(
+    { eid: opts.eid, exp, ...(opts.role ? { role: opts.role } : {}) },
+    opts.secret,
+  );
   const host = opts.baseUrl ?? 'https://<your-event-host>';
+  const path = opts.role === 'admin' ? '/admin#t=' : '/#t=';
   return {
     token,
     expiresAt: new Date(exp * 1000).toISOString(),
-    url: `${host}/#t=${token}`,
+    url: `${host}${path}${token}`,
   };
 }
 
