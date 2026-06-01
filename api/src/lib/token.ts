@@ -80,7 +80,7 @@ export function mintToken(opts: {
     { eid: opts.eid, exp, ...(opts.role ? { role: opts.role } : {}) },
     opts.secret,
   );
-  const host = opts.baseUrl ?? 'https://<your-event-host>';
+  const host = (opts.baseUrl ?? 'https://<your-event-host>').replace(/\/$/, '');
   const path = opts.role === 'admin' ? '/admin#t=' : '/#t=';
   return {
     token,

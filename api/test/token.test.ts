@@ -194,4 +194,25 @@ describe('admin role claim', () => {
     });
     expect(result.url).toBe(`https://ev.example/#t=${result.token}`);
   });
+
+  it('mintToken handles baseUrl with trailing slash for admin', () => {
+    const result = mintToken({
+      secret,
+      eid: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://ev.example/',
+      role: 'admin',
+    });
+    expect(result.url).toBe(`https://ev.example/admin#t=${result.token}`);
+  });
+
+  it('mintToken handles baseUrl with trailing slash for guest', () => {
+    const result = mintToken({
+      secret,
+      eid: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://ev.example/',
+    });
+    expect(result.url).toBe(`https://ev.example/#t=${result.token}`);
+  });
 });
