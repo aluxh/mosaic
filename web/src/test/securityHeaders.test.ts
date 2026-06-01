@@ -41,4 +41,8 @@ describe('nginx security headers', () => {
     ) ?? []).length;
     expect(count).toBeGreaterThanOrEqual(2);
   });
+
+  it('disables API proxy buffering so SSE updates flush immediately', () => {
+    expect(nginxConf).toMatch(/location \/api\/ \{[\s\S]*proxy_buffering off;/);
+  });
 });

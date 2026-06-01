@@ -17,6 +17,8 @@ import { parseTrustProxy } from './lib/trustProxy.js';
 import { registerEventRoutes } from './routes/events.js';
 import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
+import { registerStreamRoutes } from './routes/stream.js';
+import { createLiveUpdateBus } from './lib/liveUpdates.js';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), '..', 'data');
 const PORT = Number(process.env.PORT ?? 3000);
@@ -61,9 +63,11 @@ async function main() {
   });
 
   const requireToken = makeRequireToken(tokenSecret);
+  const liveUpdates = createLiveUpdateBus();
   registerEventRoutes(app, db);
-  registerMessageRoutes(app, db, requireToken);
-  registerPhotoRoutes(app, db, paths, requireToken);
+  registerStreamRoutes(app, db, liveUpdates);
+  registerMessageRoutes(app, db, requireToken, liveUpdates);
+  registerPhotoRoutes(app, db, paths, requireToken, liveUpdates);
 
   app.get('/health', async () => ({ ok: true }));
 

@@ -7,7 +7,7 @@ import { ContributeSheet, type ContributeSubmission } from './components/Contrib
 import { JustAddedTicker, type TickerEntry } from './components/JustAddedTicker';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useIdleChrome } from './hooks/useIdleChrome';
-import { usePolling } from './hooks/usePolling';
+import { useLiveUpdates } from './hooks/useLiveUpdates';
 import {
   fetchEvents,
   fetchMessages,
@@ -51,7 +51,7 @@ export function App() {
     void refresh();
   }, [refresh]);
 
-  usePolling(refresh, POLL_MS);
+  useLiveUpdates(event?.id, refresh, POLL_MS);
 
   useKeyboardShortcuts({
     onTogglePause: () => setPaused((p) => !p),

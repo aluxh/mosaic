@@ -24,6 +24,7 @@ beforeEach(() => {
 
 afterEach(() => {
   window.location.hash = '';
+  vi.unstubAllGlobals();
 });
 
 async function renderApp() {
@@ -129,6 +130,67 @@ const navPhotos: Photo[] = [
   { id: 'n2', eventId: 'remembrance', source: 'seed', url: '/n2.jpg', url1024: '/n2-1024.jpg', url320: '/n2-320.jpg', credit: '', createdAt: 0 },
   { id: 'n3', eventId: 'remembrance', source: 'seed', url: '/n3.jpg', url1024: '/n3-1024.jpg', url320: '/n3-320.jpg', credit: '', createdAt: 0 },
 ];
+
+class FakeEventSource {
+  static instances: FakeEventSource[] = [];
+  readonly url: string;
+  readonly listeners = new Map<string, Array<() => void>>();
+  close = vi.fn();
+
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, listener: () => void) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type: string, listener: () => void) {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(type, listeners.filter((l) => l !== listener));
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? []) listener();
+  }
+}
+
+describe('App live updates', () => {
+  beforeEach(() => {
+    FakeEventSource.instances = [];
+    vi.stubGlobal('EventSource', FakeEventSource);
+  });
+
+  it('opens a live-update stream and refreshes counters on update', async () => {
+    const livePhoto: Photo = {
+      id: 'live-1',
+      eventId: 'remembrance',
+      source: 'upload',
+      url: '/live-1.jpg',
+      url1024: '/live-1-1024.jpg',
+      url320: '/live-1-320.jpg',
+      credit: 'Maya',
+      createdAt: 5,
+    };
+    vi.spyOn(api, 'fetchPhotos')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([livePhoto]);
+
+    const { container } = await renderApp();
+    await waitFor(() => expect(api.fetchPhotos).toHaveBeenCalledTimes(1));
+    expect(FakeEventSource.instances[0]!.url).toBe('/api/events/remembrance/stream');
+
+    act(() => {
+      FakeEventSource.instances[0]!.emit('mosaic-update');
+    });
+
+    await waitFor(() => expect(api.fetchPhotos).toHaveBeenCalledTimes(2));
+    expect(container.textContent).toContain('1Photos');
+  });
+});
 
 describe('App arrow key navigation', () => {
   beforeEach(() => {
