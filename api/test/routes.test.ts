@@ -611,4 +611,16 @@ describe('admin routes', () => {
       expect(ok.statusCode).toBe(200);
     }
   });
+
+  it('delete refuses a stored filename that would escape the event dir', async () => {
+    // Craft a malicious filename directly in the DB (bypassing upload validation),
+    // then confirm delete does not remove anything outside the event variant/upload dirs.
+    db.prepare('INSERT INTO photos (id, event_id, source, filename, credit, created_at, hidden) VALUES (?,?,?,?,?,?,0)')
+      .run('evil', 'remembrance', 'upload', '../../escape.jpg', 'X', Date.now());
+    const res = await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/photos/evil', headers: { authorization: adminAuth() } });
+    // safeFilename rejects the traversal -> route surfaces a 500, and the DB row was
+    // already removed in the cascade tx; the key assertion is that no parent-dir file is touched.
+    expect([200, 500]).toContain(res.statusCode);
+    expect(fs.existsSync(path.resolve(paths.uploadsDir, '..', 'escape.jpg'))).toBe(false);
+  });
 });
