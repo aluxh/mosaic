@@ -80,6 +80,10 @@ async function main() {
   const ttlDays = Number(process.env.TOKEN_TTL_DAYS) || 14;
   const minted = mintToken({ secret: tokenSecret, eid: event.id, ttlDays, baseUrl });
   for (const line of formatBootToken(minted, baseUrl)) console.log(line);
+
+  const mintedAdmin = mintToken({ secret: tokenSecret, eid: event.id, ttlDays, baseUrl, role: 'admin' });
+  console.log('✓ Admin token minted');
+  for (const line of formatBootToken(mintedAdmin, baseUrl)) console.log(line);
 }
 
 main().catch((err) => {
