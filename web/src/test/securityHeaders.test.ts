@@ -45,4 +45,8 @@ describe('nginx security headers', () => {
   it('disables API proxy buffering so SSE updates flush immediately', () => {
     expect(nginxConf).toMatch(/location \/api\/ \{[\s\S]*proxy_buffering off;/);
   });
+
+  it('falls back to index.html for SPA deep links like /admin', () => {
+    expect(nginxConf).toMatch(/location \/ \{[\s\S]*try_files \$uri \$uri\/ \/index\.html;/);
+  });
 });
