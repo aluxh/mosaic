@@ -16,6 +16,9 @@ import {
   deletePhotoCascade,
   updateTransitionStyle,
   getEvent,
+  listAdminMessages,
+  setMessageHidden,
+  deleteMessage,
 } from '../src/db/queries.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
@@ -193,5 +196,43 @@ describe('admin curation queries', () => {
   it('updateTransitionStyle persists a valid value', () => {
     updateTransitionStyle(db, 'remembrance', 'cinematic');
     expect(getEvent(db, 'remembrance')?.transition_style).toBe('cinematic');
+  });
+});
+
+describe('message curation queries', () => {
+  beforeEach(() => {
+    insertPhoto(db, { id: 'p1', event_id: 'remembrance', source: 'upload', filename: 'a.jpg', credit: 'A', created_at: 1 });
+    insertMessage(db, { id: 'standalone', event_id: 'remembrance', name: 'A', text: 'no photo', created_at: 10 });
+    insertMessage(db, { id: 'paired', event_id: 'remembrance', name: 'B', text: 'with photo', created_at: 20, photo_id: 'p1' });
+  });
+
+  it('public listMessages excludes a hidden standalone message', () => {
+    expect(setMessageHidden(db, 'remembrance', 'standalone', true)).toBe(true);
+    expect(listMessages(db, 'remembrance').map((m) => m.id)).toEqual(['paired']);
+  });
+
+  it('public listMessages excludes a caption whose photo is hidden, keeps it when visible', () => {
+    expect(listMessages(db, 'remembrance').map((m) => m.id)).toEqual(['standalone', 'paired']);
+    setPhotoHidden(db, 'remembrance', 'p1', true);
+    expect(listMessages(db, 'remembrance').map((m) => m.id)).toEqual(['standalone']);
+  });
+
+  it('listAdminMessages returns standalone incl. hidden, excludes paired', () => {
+    setMessageHidden(db, 'remembrance', 'standalone', true);
+    expect(listAdminMessages(db, 'remembrance').map((m) => m.id)).toEqual(['standalone']);
+  });
+
+  it('setMessageHidden flips standalone, no-ops on paired/missing/wrong-event', () => {
+    expect(setMessageHidden(db, 'remembrance', 'standalone', true)).toBe(true);
+    expect(setMessageHidden(db, 'remembrance', 'paired', true)).toBe(false);
+    expect(setMessageHidden(db, 'remembrance', 'missing', true)).toBe(false);
+    expect(setMessageHidden(db, 'celebration', 'standalone', true)).toBe(false);
+  });
+
+  it('deleteMessage removes standalone, no-ops on paired/missing/wrong-event', () => {
+    expect(deleteMessage(db, 'remembrance', 'paired')).toBe(false);
+    expect(deleteMessage(db, 'remembrance', 'missing')).toBe(false);
+    expect(deleteMessage(db, 'remembrance', 'standalone')).toBe(true);
+    expect(listAdminMessages(db, 'remembrance').map((m) => m.id)).toEqual([]);
   });
 });

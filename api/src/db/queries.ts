@@ -73,8 +73,33 @@ export function insertMessage(db: DB, m: InsertMessageInput): MessageRow {
 
 export function listMessages(db: DB, eventId: string): MessageRow[] {
   return db
-    .prepare('SELECT * FROM messages WHERE event_id = ? ORDER BY created_at ASC')
+    .prepare(
+      `SELECT * FROM messages
+       WHERE event_id = ? AND hidden = 0
+         AND (photo_id IS NULL OR photo_id IN (SELECT id FROM photos WHERE hidden = 0))
+       ORDER BY created_at ASC`,
+    )
     .all(eventId) as MessageRow[];
+}
+
+export function listAdminMessages(db: DB, eventId: string): MessageRow[] {
+  return db
+    .prepare('SELECT * FROM messages WHERE event_id = ? AND photo_id IS NULL ORDER BY created_at ASC')
+    .all(eventId) as MessageRow[];
+}
+
+export function setMessageHidden(db: DB, eventId: string, messageId: string, hidden: boolean): boolean {
+  const info = db
+    .prepare('UPDATE messages SET hidden = ? WHERE id = ? AND event_id = ? AND photo_id IS NULL')
+    .run(hidden ? 1 : 0, messageId, eventId);
+  return info.changes > 0;
+}
+
+export function deleteMessage(db: DB, eventId: string, messageId: string): boolean {
+  const info = db
+    .prepare('DELETE FROM messages WHERE id = ? AND event_id = ? AND photo_id IS NULL')
+    .run(messageId, eventId);
+  return info.changes > 0;
 }
 
 export function listAdminPhotos(db: DB, eventId: string): PhotoRow[] {
