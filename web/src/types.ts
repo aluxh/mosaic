@@ -1,5 +1,6 @@
 export type Mode = 'celebration' | 'remembrance';
 export type TransitionStyle = 'default' | 'cinematic';
+export type FocalSource = 'unknown' | 'detected' | 'fallback' | 'manual';
 
 export interface Event {
   id: string;
@@ -38,6 +39,7 @@ export interface Message {
 
 export interface AdminPhoto extends Photo {
   hidden: boolean;
+  focalSource: FocalSource;
 }
 
 export interface AdminMessage extends Message {

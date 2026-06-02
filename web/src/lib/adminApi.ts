@@ -1,4 +1,4 @@
-import type { AdminMessage, AdminPhoto, TransitionStyle } from '../types';
+import type { AdminMessage, AdminPhoto, FocalSource, TransitionStyle } from '../types';
 
 interface ApiAdminPhoto {
   id: string;
@@ -12,6 +12,7 @@ interface ApiAdminPhoto {
   hidden: number;
   focal_x?: number;
   focal_y?: number;
+  focal_source?: FocalSource;
 }
 
 const toAdminPhoto = (p: ApiAdminPhoto): AdminPhoto => ({
@@ -26,6 +27,7 @@ const toAdminPhoto = (p: ApiAdminPhoto): AdminPhoto => ({
   hidden: p.hidden === 1,
   focalX: p.focal_x ?? 0.5,
   focalY: p.focal_y ?? 0.5,
+  focalSource: p.focal_source ?? 'unknown',
 });
 
 interface ApiAdminMessage {
@@ -74,6 +76,32 @@ export async function setPhotoHidden(eventId: string, photoId: string, hidden: b
     headers: { 'content-type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ hidden }),
   }), url);
+}
+
+export async function updatePhotoFocal(
+  eventId: string,
+  photoId: string,
+  focalX: number,
+  focalY: number,
+  token: string,
+): Promise<void> {
+  const url = `/api/events/${eventId}/admin/photos/${photoId}/focal`;
+  await ensureOk(await fetch(url, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ focal_x: focalX, focal_y: focalY }),
+  }), url);
+}
+
+export async function recalculatePhotoFocal(
+  eventId: string,
+  photoId: string,
+  token: string,
+): Promise<{ focalX: number; focalY: number; focalSource: FocalSource }> {
+  const url = `/api/events/${eventId}/admin/photos/${photoId}/focal/recalculate`;
+  const res = await ensureOk(await fetch(url, { method: 'POST', headers: authHeaders(token) }), url);
+  const data = (await res.json()) as { focal_x: number; focal_y: number; focal_source: FocalSource };
+  return { focalX: data.focal_x, focalY: data.focal_y, focalSource: data.focal_source };
 }
 
 export async function deletePhoto(eventId: string, photoId: string, token: string): Promise<void> {
