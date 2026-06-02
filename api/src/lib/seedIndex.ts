@@ -78,7 +78,9 @@ export async function indexSeedsForEvent(
       filename: storedName,
       credit: 'Host',
       created_at: now(),
-      ...focal,
+      focal_x: focal.focal_x,
+      focal_y: focal.focal_y,
+      focal_source: focal.source,
     });
     await ensureVariants(paths.variantsDir, eventId, storedName, result.buf, result.format);
     inserted += 1;

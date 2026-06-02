@@ -157,6 +157,24 @@ describe('GET /api/events/:id/photos', () => {
     expect(body[0]).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
   });
 
+  it('omits operational columns (focal_source, filename, hidden) from the public payload', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'pub.jpg'), jpegWithExif);
+    await indexSeedsForEvent(db, paths, 'remembrance');
+
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Array<Record<string, unknown>>;
+    expect(body).toHaveLength(1);
+    expect(body[0]).not.toHaveProperty('focal_source');
+    expect(body[0]).not.toHaveProperty('filename');
+    expect(body[0]).not.toHaveProperty('hidden');
+    // still carries what the wall needs:
+    expect(body[0]).toMatchObject({ source: 'seed', focal_x: 0.5, focal_y: 0.5 });
+    expect(body[0]).toHaveProperty('url');
+  });
+
   it('rate limits repeated photo list requests', async () => {
     await app.close();
     app = Fastify();
@@ -271,7 +289,7 @@ describe('POST /api/events/:id/photos', () => {
     ).toBe(true);
     expect(body.url_1024).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 1024)}`);
     expect(body.url_320).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 320)}`);
-    expect(body).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
+    expect(body).toMatchObject({ focal_x: 0.5, focal_y: 0.5, focal_source: 'fallback' });
     const vdir = variantsDirFor(paths, 'remembrance');
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
@@ -633,6 +651,77 @@ describe('admin routes', () => {
     // already removed in the cascade tx; the key assertion is that no parent-dir file is touched.
     expect([200, 500]).toContain(res.statusCode);
     expect(fs.existsSync(path.resolve(paths.uploadsDir, '..', 'escape.jpg'))).toBe(false);
+  });
+
+  it('GET admin/photos includes focal_source', async () => {
+    await seedUploadPhoto('fs1');
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    const body = res.json() as Array<{ id: string; focal_source: string }>;
+    expect(body.find((p) => p.id === 'fs1')).toMatchObject({ focal_source: 'unknown' });
+  });
+
+  it('PATCH admin/photos/:id/focal validates, sets manual, and 404s for missing', async () => {
+    await seedUploadPhoto('fc1');
+
+    const ok = await app.inject({
+      method: 'PATCH',
+      url: '/api/events/remembrance/admin/photos/fc1/focal',
+      payload: { focal_x: 0.42, focal_y: 0.31 },
+      headers: { authorization: adminAuth() },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ ok: true });
+
+    const list = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    expect((list.json() as Array<{ id: string; focal_x: number; focal_y: number; focal_source: string }>).find((p) => p.id === 'fc1'))
+      .toMatchObject({ focal_x: 0.42, focal_y: 0.31, focal_source: 'manual' });
+
+    for (const payload of [{ focal_x: 1.2, focal_y: 0.5 }, { focal_x: -0.1, focal_y: 0.5 }, { focal_x: 'x', focal_y: 0.5 }, { focal_y: 0.5 }]) {
+      const bad = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/photos/fc1/focal', payload, headers: { authorization: adminAuth() } });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+
+    const missing = await app.inject({
+      method: 'PATCH',
+      url: '/api/events/remembrance/admin/photos/nope/focal',
+      payload: { focal_x: 0.5, focal_y: 0.5 },
+      headers: { authorization: adminAuth() },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('PATCH admin/photos/:id/focal requires admin (401 for guest/no token)', async () => {
+    await seedUploadPhoto('fc2');
+    const payload = { focal_x: 0.5, focal_y: 0.5 };
+    const url = '/api/events/remembrance/admin/photos/fc2/focal';
+    expect((await app.inject({ method: 'PATCH', url, payload })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'PATCH', url, payload, headers: { authorization: validAuth() } })).statusCode).toBe(401);
+  });
+
+  it('POST admin/photos/:id/focal/recalculate reruns detection and stores the source', async () => {
+    await seedUploadPhoto('rc1');
+    __setFocalPointDetectorForTest(async () => [{ x: 10, y: 20, width: 30, height: 40 }]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/admin/photos/rc1/focal/recalculate',
+      headers: { authorization: adminAuth() },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, focal_source: 'detected' });
+
+    const list = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    expect((list.json() as Array<{ id: string; focal_source: string }>).find((p) => p.id === 'rc1'))
+      .toMatchObject({ focal_source: 'detected' });
+  });
+
+  it('POST admin/photos/:id/focal/recalculate 404s for a missing photo', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/admin/photos/nope/focal/recalculate',
+      headers: { authorization: adminAuth() },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });
 

@@ -11,7 +11,10 @@ import {
   listAdminMessages,
   setMessageHidden,
   deleteMessage,
+  getPhotoForEvent,
+  updatePhotoFocalPoint,
 } from '../db/queries.js';
+import { detectFocalPoint } from '../lib/focalPoint.js';
 import {
   publicUrlForPhoto,
   publicUrlForVariant,
@@ -26,6 +29,10 @@ import type { LiveUpdateBus } from '../lib/liveUpdates.js';
 import type { PhotoRow, TransitionStyle } from '../types.js';
 
 const VALID_STYLES: TransitionStyle[] = ['default', 'cinematic'];
+
+function isUnitNumber(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+}
 
 // Remove a file inside `dir` named `filename`, refusing any path that escapes
 // `dir`. Missing files are ignored (idempotent delete).
@@ -78,6 +85,37 @@ export function registerAdminRoutes(
       if (!updated) return reply.code(404).send({ error: 'photo not found' });
       liveUpdates?.publish({ type: 'photo_updated', eventId: req.params.id, createdAt: Date.now() });
       return { ok: true };
+    },
+  );
+
+  app.patch<{ Params: { id: string; photoId: string }; Body: { focal_x?: unknown; focal_y?: unknown } }>(
+    '/api/events/:id/admin/photos/:photoId/focal',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const { focal_x, focal_y } = req.body ?? {};
+      if (!isUnitNumber(focal_x) || !isUnitNumber(focal_y)) {
+        return reply.code(400).send({ error: 'focal_x and focal_y must be numbers in 0..1' });
+      }
+      const updated = updatePhotoFocalPoint(db, req.params.id, req.params.photoId, focal_x, focal_y, 'manual');
+      if (!updated) return reply.code(404).send({ error: 'photo not found' });
+      liveUpdates?.publish({ type: 'photo_updated', eventId: req.params.id, createdAt: Date.now() });
+      return { ok: true };
+    },
+  );
+
+  app.post<{ Params: { id: string; photoId: string } }>(
+    '/api/events/:id/admin/photos/:photoId/focal/recalculate',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const row = getPhotoForEvent(db, req.params.id, req.params.photoId);
+      if (!row) return reply.code(404).send({ error: 'photo not found' });
+      const sourceDir = row.source === 'seed' ? seedsDirFor(paths, req.params.id) : uploadsDirFor(paths, req.params.id);
+      const originalPath = path.join(sourceDir, safeFilename(row.filename));
+      if (!fs.existsSync(originalPath)) return reply.code(404).send({ error: 'original not found' });
+      const focal = await detectFocalPoint(fs.readFileSync(originalPath));
+      updatePhotoFocalPoint(db, req.params.id, req.params.photoId, focal.focal_x, focal.focal_y, focal.source);
+      liveUpdates?.publish({ type: 'photo_updated', eventId: req.params.id, createdAt: Date.now() });
+      return { ok: true, focal_x: focal.focal_x, focal_y: focal.focal_y, focal_source: focal.source };
     },
   );
 

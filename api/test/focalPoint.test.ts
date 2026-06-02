@@ -42,9 +42,22 @@ describe('focalPointFromFaces', () => {
 });
 
 describe('detectFocalPoint', () => {
-  it('falls back to center when detector returns no usable faces', async () => {
+  it('reports fallback + center when the detector returns no usable faces', async () => {
     __setFocalPointDetectorForTest(async () => []);
-    await expect(detectFocalPoint(await testImage())).resolves.toEqual({ focal_x: 0.5, focal_y: 0.5 });
+    await expect(detectFocalPoint(await testImage())).resolves.toEqual({
+      focal_x: 0.5,
+      focal_y: 0.5,
+      source: 'fallback',
+    });
+  });
+
+  it('reports detected when the detector returns a face', async () => {
+    __setFocalPointDetectorForTest(async () => [{ x: 10, y: 20, width: 30, height: 40 }]);
+    await expect(detectFocalPoint(await testImage())).resolves.toEqual({
+      focal_x: 0.25,
+      focal_y: 0.4,
+      source: 'detected',
+    });
   });
 
   it('caps detector concurrency at two', async () => {

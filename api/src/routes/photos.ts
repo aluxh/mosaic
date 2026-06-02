@@ -91,7 +91,9 @@ export function registerPhotoRoutes(
           filename,
           credit: credit || 'Guest',
           created_at: createdAt,
-          ...focal,
+          focal_x: focal.focal_x,
+          focal_y: focal.focal_y,
+          focal_source: focal.source,
         });
         const msg = message
           ? insertMessage(db, {
