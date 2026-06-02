@@ -8,6 +8,9 @@ import {
   setPhotoHidden,
   deletePhotoCascade,
   updateTransitionStyle,
+  listAdminMessages,
+  setMessageHidden,
+  deleteMessage,
 } from '../db/queries.js';
 import {
   publicUrlForPhoto,
@@ -86,6 +89,38 @@ export function registerAdminRoutes(
       if (!deleted) return reply.code(404).send({ error: 'photo not found' });
       removePhotoFiles(paths, req.params.id, deleted);
       liveUpdates?.publish({ type: 'photo_deleted', eventId: req.params.id, createdAt: Date.now() });
+      return { ok: true };
+    },
+  );
+
+  app.get<{ Params: { id: string } }>(
+    '/api/events/:id/admin/messages',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const event = getEvent(db, req.params.id);
+      if (!event) return reply.code(404).send({ error: 'event not found' });
+      return listAdminMessages(db, req.params.id);
+    },
+  );
+
+  app.patch<{ Params: { id: string; messageId: string }; Body: { hidden?: boolean } }>(
+    '/api/events/:id/admin/messages/:messageId',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const updated = setMessageHidden(db, req.params.id, req.params.messageId, Boolean(req.body?.hidden));
+      if (!updated) return reply.code(404).send({ error: 'message not found' });
+      liveUpdates?.publish({ type: 'message_updated', eventId: req.params.id, createdAt: Date.now() });
+      return { ok: true };
+    },
+  );
+
+  app.delete<{ Params: { id: string; messageId: string } }>(
+    '/api/events/:id/admin/messages/:messageId',
+    { preHandler: requireAdmin },
+    async (req, reply) => {
+      const deleted = deleteMessage(db, req.params.id, req.params.messageId);
+      if (!deleted) return reply.code(404).send({ error: 'message not found' });
+      liveUpdates?.publish({ type: 'message_deleted', eventId: req.params.id, createdAt: Date.now() });
       return { ok: true };
     },
   );

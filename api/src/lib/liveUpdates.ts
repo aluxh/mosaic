@@ -3,6 +3,8 @@ export type LiveUpdateType =
   | 'message_created'
   | 'photo_updated'
   | 'photo_deleted'
+  | 'message_updated'
+  | 'message_deleted'
   | 'event_updated';
 
 export interface LiveUpdate {
