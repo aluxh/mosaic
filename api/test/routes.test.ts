@@ -271,7 +271,7 @@ describe('POST /api/events/:id/photos', () => {
     ).toBe(true);
     expect(body.url_1024).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 1024)}`);
     expect(body.url_320).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 320)}`);
-    expect(body).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
+    expect(body).toMatchObject({ focal_x: 0.5, focal_y: 0.5, focal_source: 'fallback' });
     const vdir = variantsDirFor(paths, 'remembrance');
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);

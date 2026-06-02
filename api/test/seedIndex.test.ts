@@ -262,4 +262,18 @@ describe('indexSeedsForEvent', () => {
     expect(second.inserted).toBe(0);
     expect(listPhotos(db, 'remembrance')).toHaveLength(1);
   });
+
+  it('stamps focal_source detected when a face is found', async () => {
+    __setFocalPointDetectorForTest(async () => [{ x: 10, y: 20, width: 30, height: 40 }]);
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'face.jpg'), validJpeg);
+
+    await indexSeedsForEvent(db, paths, 'remembrance');
+
+    expect(listPhotos(db, 'remembrance').find((p) => p.filename === 'face.jpg')).toMatchObject({
+      focal_source: 'detected',
+    });
+    __resetFocalPointForTest();
+  });
 });
