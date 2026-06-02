@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fetchAdminPhotos, setPhotoHidden, deletePhoto, setTransitionStyle } from '../lib/adminApi';
+import {
+  fetchAdminPhotos,
+  setPhotoHidden,
+  deletePhoto,
+  setTransitionStyle,
+  fetchAdminMessages,
+  setMessageHidden,
+  deleteMessage,
+} from '../lib/adminApi';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -49,5 +57,34 @@ describe('adminApi', () => {
   it('throws on a non-ok response', async () => {
     mockFetch(() => ({ ok: false, status: 401, json: async () => ({ error: 'nope' }) }));
     await expect(fetchAdminPhotos('e1', 'tok')).rejects.toThrow();
+  });
+
+  it('fetchAdminMessages sends the bearer token and maps rows', async () => {
+    const fn = mockFetch(() => ({
+      ok: true,
+      json: async () => [
+        { id: 'm1', event_id: 'e1', name: 'Guest', text: 'hi', created_at: 1, photo_id: null, hidden: 1 },
+      ],
+    }));
+    const messages = await fetchAdminMessages('e1', 'tok');
+    expect(fn).toHaveBeenCalledWith('/api/events/e1/admin/messages', expect.objectContaining({
+      headers: { Authorization: 'Bearer tok' },
+    }));
+    expect(messages[0]).toMatchObject({ id: 'm1', text: 'hi', hidden: true, photoId: null });
+  });
+
+  it('setMessageHidden PATCHes with the hidden body', async () => {
+    const fn = mockFetch(() => ({ ok: true, json: async () => ({ ok: true }) }));
+    await setMessageHidden('e1', 'm1', true, 'tok');
+    expect(fn).toHaveBeenCalledWith('/api/events/e1/admin/messages/m1', expect.objectContaining({
+      method: 'PATCH',
+      body: JSON.stringify({ hidden: true }),
+    }));
+  });
+
+  it('deleteMessage DELETEs with the bearer token', async () => {
+    const fn = mockFetch(() => ({ ok: true, json: async () => ({ ok: true }) }));
+    await deleteMessage('e1', 'm1', 'tok');
+    expect(fn).toHaveBeenCalledWith('/api/events/e1/admin/messages/m1', expect.objectContaining({ method: 'DELETE' }));
   });
 });

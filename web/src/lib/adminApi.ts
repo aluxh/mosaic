@@ -1,4 +1,4 @@
-import type { AdminPhoto, TransitionStyle } from '../types';
+import type { AdminMessage, AdminPhoto, TransitionStyle } from '../types';
 
 interface ApiAdminPhoto {
   id: string;
@@ -22,6 +22,26 @@ const toAdminPhoto = (p: ApiAdminPhoto): AdminPhoto => ({
   credit: p.credit,
   createdAt: p.created_at,
   hidden: p.hidden === 1,
+});
+
+interface ApiAdminMessage {
+  id: string;
+  event_id: string;
+  name: string;
+  text: string;
+  created_at: number;
+  photo_id: string | null;
+  hidden: number;
+}
+
+const toAdminMessage = (m: ApiAdminMessage): AdminMessage => ({
+  id: m.id,
+  eventId: m.event_id,
+  name: m.name,
+  text: m.text,
+  createdAt: m.created_at,
+  photoId: m.photo_id,
+  hidden: m.hidden === 1,
 });
 
 function authHeaders(token: string): Record<string, string> {
@@ -64,4 +84,25 @@ export async function setTransitionStyle(eventId: string, transitionStyle: Trans
     headers: { 'content-type': 'application/json', ...authHeaders(token) },
     body: JSON.stringify({ transitionStyle }),
   }), url);
+}
+
+export async function fetchAdminMessages(eventId: string, token: string): Promise<AdminMessage[]> {
+  const url = `/api/events/${eventId}/admin/messages`;
+  const res = await ensureOk(await fetch(url, { headers: authHeaders(token) }), url);
+  const data = (await res.json()) as ApiAdminMessage[];
+  return data.map(toAdminMessage);
+}
+
+export async function setMessageHidden(eventId: string, messageId: string, hidden: boolean, token: string): Promise<void> {
+  const url = `/api/events/${eventId}/admin/messages/${messageId}`;
+  await ensureOk(await fetch(url, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...authHeaders(token) },
+    body: JSON.stringify({ hidden }),
+  }), url);
+}
+
+export async function deleteMessage(eventId: string, messageId: string, token: string): Promise<void> {
+  const url = `/api/events/${eventId}/admin/messages/${messageId}`;
+  await ensureOk(await fetch(url, { method: 'DELETE', headers: authHeaders(token) }), url);
 }

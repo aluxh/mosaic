@@ -32,6 +32,7 @@ export interface MessageRow {
   text: string;
   created_at: number;
   photo_id: string | null;
+  hidden: number;
 }
 
 export interface PhotoResponse extends PhotoRow {

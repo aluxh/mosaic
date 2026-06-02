@@ -624,3 +624,74 @@ describe('admin routes', () => {
     expect(fs.existsSync(path.resolve(paths.uploadsDir, '..', 'escape.jpg'))).toBe(false);
   });
 });
+
+describe('admin message routes', () => {
+  function seedStandalone(id: string, hidden = 0) {
+    db.prepare(
+      'INSERT INTO messages (id, event_id, name, text, created_at, photo_id, hidden) VALUES (?,?,?,?,?,NULL,?)',
+    ).run(id, 'remembrance', 'Guest', `msg ${id}`, Date.now(), hidden);
+  }
+  function seedPaired(id: string) {
+    db.prepare(
+      'INSERT INTO photos (id, event_id, source, filename, credit, created_at, hidden) VALUES (?,?,?,?,?,?,0)',
+    ).run(`ph-${id}`, 'remembrance', 'upload', `${id}.jpg`, 'A', Date.now());
+    db.prepare(
+      'INSERT INTO messages (id, event_id, name, text, created_at, photo_id) VALUES (?,?,?,?,?,?)',
+    ).run(id, 'remembrance', 'A', 'linked', Date.now(), `ph-${id}`);
+  }
+
+  it('all admin message routes return 401 with no token and with a guest token', async () => {
+    seedStandalone('m1');
+    const cases: Array<[string, string, object?]> = [
+      ['GET', '/api/events/remembrance/admin/messages'],
+      ['PATCH', '/api/events/remembrance/admin/messages/m1', { hidden: true }],
+      ['DELETE', '/api/events/remembrance/admin/messages/m1'],
+    ];
+    for (const [method, url, payload] of cases) {
+      const noTok = await app.inject({ method: method as 'GET', url, payload });
+      expect(noTok.statusCode, `${method} ${url} no-token`).toBe(401);
+      const guest = await app.inject({ method: method as 'GET', url, payload, headers: { authorization: validAuth() } });
+      expect(guest.statusCode, `${method} ${url} guest`).toBe(401);
+    }
+  });
+
+  it('GET admin/messages returns standalone incl. hidden, excludes paired', async () => {
+    seedStandalone('m1', 1);
+    seedPaired('paired1');
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/messages', headers: { authorization: adminAuth() } });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Array<{ id: string; hidden: number; photo_id: string | null }>;
+    expect(body.map((m) => m.id)).toEqual(['m1']);
+    expect(body[0]).toMatchObject({ hidden: 1, photo_id: null });
+  });
+
+  it('GET admin/messages 404s for an unknown event', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/events/nope/admin/messages', headers: { authorization: adminAuth('nope') } });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('PATCH admin/messages toggles visibility; public list reflects it', async () => {
+    seedStandalone('m1');
+    const hide = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/messages/m1', payload: { hidden: true }, headers: { authorization: adminAuth() } });
+    expect(hide.statusCode).toBe(200);
+    const pub = await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' });
+    expect((pub.json() as unknown[]).length).toBe(0);
+    const show = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/messages/m1', payload: { hidden: false }, headers: { authorization: adminAuth() } });
+    expect(show.statusCode).toBe(200);
+    const pub2 = await app.inject({ method: 'GET', url: '/api/events/remembrance/messages' });
+    expect((pub2.json() as unknown[]).length).toBe(1);
+  });
+
+  it('PATCH/DELETE for a paired or unknown message 404s', async () => {
+    seedPaired('paired1');
+    expect((await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/messages/paired1', payload: { hidden: true }, headers: { authorization: adminAuth() } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/messages/paired1', headers: { authorization: adminAuth() } })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/messages/missing', payload: { hidden: true }, headers: { authorization: adminAuth() } })).statusCode).toBe(404);
+  });
+
+  it('DELETE removes a standalone message; second delete 404s', async () => {
+    seedStandalone('m1');
+    expect((await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/messages/m1', headers: { authorization: adminAuth() } })).statusCode).toBe(200);
+    expect((await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/messages/m1', headers: { authorization: adminAuth() } })).statusCode).toBe(404);
+  });
+});

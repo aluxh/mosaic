@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchEvents } from './lib/api';
-import { fetchAdminPhotos, setPhotoHidden, deletePhoto, setTransitionStyle } from './lib/adminApi';
+import {
+  fetchAdminPhotos,
+  setPhotoHidden,
+  deletePhoto,
+  setTransitionStyle,
+  fetchAdminMessages,
+  setMessageHidden,
+  deleteMessage,
+} from './lib/adminApi';
 import { readToken } from './lib/token';
-import type { AdminPhoto, Event, TransitionStyle } from './types';
+import type { AdminMessage, AdminPhoto, Event, TransitionStyle } from './types';
+
+type Tab = 'photos' | 'messages';
 
 export function AdminApp() {
   const token = useMemo(() => readToken() ?? undefined, []);
   const [event, setEvent] = useState<Event | null>(null);
   const [photos, setPhotos] = useState<AdminPhoto[]>([]);
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
+  const [tab, setTab] = useState<Tab>('photos');
   const [style, setStyle] = useState<TransitionStyle>('default');
   const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -30,9 +42,10 @@ export function AdminApp() {
 
   useEffect(() => {
     if (!token || !event) return;
-    fetchAdminPhotos(event.id, token)
-      .then(setPhotos)
-      .catch((e) => setError(e instanceof Error && /401/.test(e.message) ? "This link can't curate the wall." : String(e)));
+    const onErr = (e: unknown) =>
+      setError(e instanceof Error && /401/.test(e.message) ? "This link can't curate the wall." : String(e));
+    fetchAdminPhotos(event.id, token).then(setPhotos).catch(onErr);
+    fetchAdminMessages(event.id, token).then(setMessages).catch(onErr);
   }, [token, event]);
 
   if (!token) {
@@ -70,6 +83,33 @@ export function AdminApp() {
     }
   };
 
+  const onToggleMsg = async (m: AdminMessage) => {
+    if (!event) return;
+    const next = !m.hidden;
+    setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, hidden: next } : x)));
+    try {
+      await setMessageHidden(event.id, m.id, next, token);
+    } catch {
+      setMessages((cur) => cur.map((x) => (x.id === m.id ? { ...x, hidden: m.hidden } : x))); // revert
+    }
+  };
+
+  const onDeleteMsg = async (m: AdminMessage) => {
+    if (!event) return;
+    if (confirmId !== m.id) {
+      setConfirmId(m.id);
+      return;
+    }
+    try {
+      await deleteMessage(event.id, m.id, token);
+      setMessages((cur) => cur.filter((x) => x.id !== m.id));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setConfirmId(null);
+    }
+  };
+
   const onStyle = async (next: TransitionStyle) => {
     if (!event) return;
     const prev = style;
@@ -98,34 +138,76 @@ export function AdminApp() {
         </div>
       </header>
 
-      {error && <p className="mb-4 text-sm text-amber-400">{error}</p>}
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {photos.map((p) => (
-          <div key={p.id} className={`rounded-lg overflow-hidden border border-neutral-800 ${p.hidden ? 'opacity-40' : ''}`}>
-            <div className="relative aspect-square bg-neutral-900">
-              <img src={p.url320} alt={p.id} className="w-full h-full object-cover" />
-              <span className="absolute top-1 left-1 mono text-[0.55rem] uppercase tracking-wide px-1.5 py-0.5 rounded bg-black/60">
-                {p.source === 'seed' ? 'Seed' : 'Guest'}
-              </span>
-              {p.hidden && (
-                <span className="absolute bottom-1 left-1 mono text-[0.55rem] uppercase px-1.5 py-0.5 rounded bg-black/70">Hidden</span>
-              )}
-            </div>
-            <div className="flex">
-              <button onClick={() => onToggle(p)} className="flex-1 py-2 text-xs mono border-r border-neutral-800 hover:bg-neutral-800">
-                {p.hidden ? 'Show' : 'Hide'}
-              </button>
-              <button
-                onClick={() => onDelete(p)}
-                className={`flex-1 py-2 text-xs mono hover:bg-red-900/40 ${confirmId === p.id ? 'text-red-400' : ''}`}
-              >
-                {confirmId === p.id ? 'Confirm delete?' : 'Delete'}
-              </button>
-            </div>
-          </div>
+      <div className="mb-6 flex w-fit rounded-full border border-neutral-700 overflow-hidden mono text-xs">
+        {(['photos', 'messages'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => {
+              setTab(t);
+              setConfirmId(null);
+            }}
+            className={`px-4 py-2 capitalize ${tab === t ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-300'}`}
+          >
+            {t}
+          </button>
         ))}
       </div>
+
+      {error && <p className="mb-4 text-sm text-amber-400">{error}</p>}
+
+      {tab === 'photos' ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {photos.map((p) => (
+            <div key={p.id} className={`rounded-lg overflow-hidden border border-neutral-800 ${p.hidden ? 'opacity-40' : ''}`}>
+              <div className="relative aspect-square bg-neutral-900">
+                <img src={p.url320} alt={p.id} className="w-full h-full object-cover" />
+                <span className="absolute top-1 left-1 mono text-[0.55rem] uppercase tracking-wide px-1.5 py-0.5 rounded bg-black/60">
+                  {p.source === 'seed' ? 'Seed' : 'Guest'}
+                </span>
+                {p.hidden && (
+                  <span className="absolute bottom-1 left-1 mono text-[0.55rem] uppercase px-1.5 py-0.5 rounded bg-black/70">Hidden</span>
+                )}
+              </div>
+              <div className="flex">
+                <button onClick={() => onToggle(p)} className="flex-1 py-2 text-xs mono border-r border-neutral-800 hover:bg-neutral-800">
+                  {p.hidden ? 'Show' : 'Hide'}
+                </button>
+                <button
+                  onClick={() => onDelete(p)}
+                  className={`flex-1 py-2 text-xs mono hover:bg-red-900/40 ${confirmId === p.id ? 'text-red-400' : ''}`}
+                >
+                  {confirmId === p.id ? 'Confirm delete?' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {messages.map((m) => (
+            <div key={m.id} className={`flex flex-col rounded-lg border border-neutral-800 ${m.hidden ? 'opacity-40' : ''}`}>
+              <div className="flex-1 p-4">
+                <p className="serif text-sm">{m.text}</p>
+                <p className="mono text-[0.6rem] uppercase tracking-wide text-neutral-400 mt-2">— {m.name}</p>
+                {m.hidden && (
+                  <span className="mt-2 inline-block mono text-[0.55rem] uppercase px-1.5 py-0.5 rounded bg-black/70">Hidden</span>
+                )}
+              </div>
+              <div className="flex border-t border-neutral-800">
+                <button onClick={() => onToggleMsg(m)} className="flex-1 py-2 text-xs mono border-r border-neutral-800 hover:bg-neutral-800">
+                  {m.hidden ? 'Show' : 'Hide'}
+                </button>
+                <button
+                  onClick={() => onDeleteMsg(m)}
+                  className={`flex-1 py-2 text-xs mono hover:bg-red-900/40 ${confirmId === m.id ? 'text-red-400' : ''}`}
+                >
+                  {confirmId === m.id ? 'Confirm delete?' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
