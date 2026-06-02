@@ -16,6 +16,7 @@ import { makeStoragePaths, type StoragePaths, variantsDirFor, uploadsDirFor } fr
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeRequireToken, makeRequireAdmin } from '../src/lib/auth.js';
 import { registerAdminRoutes } from '../src/routes/admin.js';
+import { registerJoinRoute } from '../src/routes/join.js';
 import { signToken } from '../src/lib/token.js';
 import { variantFilename } from '../src/lib/variants.js';
 import {
@@ -93,6 +94,7 @@ async function buildApp() {
   registerMessageRoutes(app, db, requireToken);
   registerPhotoRoutes(app, db, paths, requireToken);
   registerAdminRoutes(app, db, paths, makeRequireAdmin(TEST_SECRET));
+  registerJoinRoute(app, { tokenSecret: TEST_SECRET, eventId: 'remembrance', ttlDays: 14 });
   await app.ready();
 }
 
@@ -793,5 +795,28 @@ describe('admin message routes', () => {
     seedStandalone('m1');
     expect((await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/messages/m1', headers: { authorization: adminAuth() } })).statusCode).toBe(200);
     expect((await app.inject({ method: 'DELETE', url: '/api/events/remembrance/admin/messages/m1', headers: { authorization: adminAuth() } })).statusCode).toBe(404);
+  });
+});
+
+describe('GET /join', () => {
+  it('returns 302 with /#t=<token> when BASE_URL is not set', async () => {
+    const res = await app.inject({ method: 'GET', url: '/join' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toMatch(/^\/#t=.+/);
+  });
+
+  it('returns 302 to BASE_URL/#t=<token> when BASE_URL is set', async () => {
+    const joinApp = Fastify();
+    registerJoinRoute(joinApp, {
+      tokenSecret: TEST_SECRET,
+      eventId: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://event.example.com',
+    });
+    await joinApp.ready();
+    const res = await joinApp.inject({ method: 'GET', url: '/join' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toMatch(/^https:\/\/event\.example\.com\/#t=.+/);
+    await joinApp.close();
   });
 });
