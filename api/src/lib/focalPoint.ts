@@ -11,6 +11,10 @@ export interface FocalPoint {
   focal_y: number;
 }
 
+export interface DetectedFocalPoint extends FocalPoint {
+  source: 'detected' | 'fallback';
+}
+
 interface FaceBox {
   x: number;
   y: number;
@@ -30,8 +34,8 @@ const modelDir = path.join(here, 'faceModels');
 let modelPromise: Promise<void> | null = null;
 let active = 0;
 const queue: {
-  run: () => Promise<FocalPoint>;
-  resolve: (value: FocalPoint) => void;
+  run: () => Promise<DetectedFocalPoint>;
+  resolve: (value: DetectedFocalPoint) => void;
   reject: (reason: unknown) => void;
 }[] = [];
 let detector: Detector = detectFacesWithFaceApi;
@@ -126,25 +130,27 @@ function pumpQueue(): void {
   }
 }
 
-function enqueue(run: () => Promise<FocalPoint>): Promise<FocalPoint> {
+function enqueue(run: () => Promise<DetectedFocalPoint>): Promise<DetectedFocalPoint> {
   return new Promise((resolve, reject) => {
     queue.push({ run, resolve, reject });
     pumpQueue();
   });
 }
 
-export async function detectFocalPoint(buf: Buffer): Promise<FocalPoint> {
+export async function detectFocalPoint(buf: Buffer): Promise<DetectedFocalPoint> {
   return enqueue(async () => {
+    const fallback: DetectedFocalPoint = { ...CENTER_FOCAL_POINT, source: 'fallback' };
     try {
       const meta = await sharp(buf).metadata();
-      if (!meta.width || !meta.height) return CENTER_FOCAL_POINT;
+      if (!meta.width || !meta.height) return fallback;
       const prepared = await prepareDetectionBuffer(buf);
-      if (!prepared.width || !prepared.height) return CENTER_FOCAL_POINT;
+      if (!prepared.width || !prepared.height) return fallback;
       const faces = await detector(prepared.buf);
-      return focalPointFromFaces(prepared.width, prepared.height, faces);
+      if (faces.length === 0) return fallback;
+      return { ...focalPointFromFaces(prepared.width, prepared.height, faces), source: 'detected' };
     } catch (err) {
       console.warn(`[focal] falling back to center: ${err instanceof Error ? err.message : String(err)}`);
-      return CENTER_FOCAL_POINT;
+      return fallback;
     }
   });
 }
