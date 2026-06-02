@@ -38,6 +38,10 @@ export interface AdminPhoto extends Photo {
   hidden: boolean;
 }
 
+export interface AdminMessage extends Message {
+  hidden: boolean;
+}
+
 export type SlideSpec =
   | { id: string; type: 'title-card'; event: Event }
   | { id: string; type: 'hero'; photos: [Photo] }
