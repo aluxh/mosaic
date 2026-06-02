@@ -21,6 +21,7 @@ import { registerMessageRoutes } from './routes/messages.js';
 import { registerPhotoRoutes } from './routes/photos.js';
 import { registerStreamRoutes } from './routes/stream.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerJoinRoute } from './routes/join.js';
 import { createLiveUpdateBus } from './lib/liveUpdates.js';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), '..', 'data');
@@ -83,11 +84,13 @@ async function main() {
 
   app.get('/health', async () => ({ ok: true }));
 
+  const baseUrl = process.env.BASE_URL;
+  const ttlDays = Number(process.env.TOKEN_TTL_DAYS) || 14;
+  registerJoinRoute(app, { tokenSecret, eventId: event.id, ttlDays, baseUrl });
+
   await app.listen({ port: PORT, host: HOST });
   app.log.info(`Mosaic API listening on http://${HOST}:${PORT}, data=${paths.dataDir}`);
 
-  const baseUrl = process.env.BASE_URL;
-  const ttlDays = Number(process.env.TOKEN_TTL_DAYS) || 14;
   const minted = mintToken({ secret: tokenSecret, eid: event.id, ttlDays, baseUrl });
   for (const line of formatBootToken(minted, baseUrl)) console.log(line);
 
