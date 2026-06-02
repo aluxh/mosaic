@@ -23,6 +23,8 @@ export interface PhotoRow {
   credit: string;
   created_at: number;
   hidden: number;
+  focal_x: number;
+  focal_y: number;
 }
 
 export interface MessageRow {

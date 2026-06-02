@@ -13,6 +13,7 @@ import { ingestImage, MAX_FILE_BYTES } from '../lib/imageIngest.js';
 import { ensureVariants } from '../lib/variants.js';
 import { safeEventId } from '../lib/pathSafety.js';
 import type { LiveUpdateBus } from '../lib/liveUpdates.js';
+import { detectFocalPoint } from '../lib/focalPoint.js';
 
 export function registerPhotoRoutes(
   app: FastifyInstance,
@@ -79,6 +80,7 @@ export function registerPhotoRoutes(
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(target, result.buf);
       await ensureVariants(paths.variantsDir, eventId, filename, result.buf, result.format);
+      const focal = await detectFocalPoint(result.buf);
 
       const createdAt = Date.now();
       const writePair = db.transaction(() => {
@@ -89,6 +91,7 @@ export function registerPhotoRoutes(
           filename,
           credit: credit || 'Guest',
           created_at: createdAt,
+          ...focal,
         });
         const msg = message
           ? insertMessage(db, {

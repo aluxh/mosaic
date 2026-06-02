@@ -1,4 +1,5 @@
 import type { Mode, SlideSpec } from '../../types';
+import { objectPositionForPhoto } from '../../lib/focalPoint';
 import { KenBurns } from './KenBurns';
 
 interface Props {
@@ -13,7 +14,7 @@ export function HeroWithMessageSlide({ slide, mode, durationMs }: Props) {
   const isCele = mode === 'celebration';
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      <KenBurns src={p.url} seed={slide.id} durationMs={durationMs} />
+      <KenBurns src={p.url} seed={slide.id} durationMs={durationMs} objectPosition={objectPositionForPhoto(p)} />
       <div
         className={`absolute inset-0 ${
           isCele

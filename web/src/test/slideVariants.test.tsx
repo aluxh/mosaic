@@ -16,6 +16,8 @@ function photo(id: string): Photo {
     url320: `/data/variants/${id}-320.jpg`,
     credit: 'C',
     createdAt: 0,
+    focalX: 0.25,
+    focalY: 0.75,
   };
 }
 
@@ -27,6 +29,7 @@ describe('slide variant selection', () => {
     const slide = { id: 's1', type: 'duo' as const, photos: [photo('p1'), photo('p2')] as [Photo, Photo] };
     const { container } = render(<DuoSlide slide={slide} mode="celebration" durationMs={1000} />);
     expect(srcs(container)).toEqual(['/data/variants/p1-1024.jpg', '/data/variants/p2-1024.jpg']);
+    expect(container.querySelector('img')?.style.objectPosition).toBe('25% 75%');
   });
 
   it('TriptychSlide renders the 1024 variant', () => {
@@ -41,6 +44,7 @@ describe('slide variant selection', () => {
       '/data/variants/p2-1024.jpg',
       '/data/variants/p3-1024.jpg',
     ]);
+    expect(container.querySelector('img')?.style.objectPosition).toBe('25% 75%');
   });
 
   it('PolaroidSlide renders the 320 variant', () => {
@@ -55,11 +59,13 @@ describe('slide variant selection', () => {
       '/data/variants/p2-320.jpg',
       '/data/variants/p3-320.jpg',
     ]);
+    expect(container.querySelector('img')?.style.objectPosition).toBe('25% 75%');
   });
 
   it('HeroSlide still renders the original url', () => {
     const slide = { id: 's4', type: 'hero' as const, photos: [photo('p1')] as [Photo] };
     const { container } = render(<HeroSlide slide={slide} durationMs={1000} />);
     expect(srcs(container)).toEqual(['/data/p1.jpg']);
+    expect(container.querySelector('img')?.style.objectPosition).toBe('25% 75%');
   });
 });

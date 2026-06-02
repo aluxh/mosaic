@@ -1,4 +1,5 @@
 import type { SlideSpec } from '../../types';
+import { objectPositionForPhoto } from '../../lib/focalPoint';
 
 interface Props {
   slide: Extract<SlideSpec, { type: 'polaroid' }>;
@@ -39,7 +40,7 @@ export function PolaroidSlide({ slide }: Props) {
                       src={p.url320}
                       alt=""
                       className="absolute inset-0 w-full h-full"
-                      style={{ objectFit: 'cover' }}
+                      style={{ objectFit: 'cover', objectPosition: objectPositionForPhoto(p) }}
                       draggable={false}
                     />
                   </div>

@@ -23,6 +23,8 @@ export interface Photo {
   url320: string;
   credit: string;
   createdAt: number;
+  focalX: number;
+  focalY: number;
 }
 
 export interface Message {

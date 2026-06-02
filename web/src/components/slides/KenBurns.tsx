@@ -6,6 +6,7 @@ interface KenBurnsProps {
   durationMs?: number;
   seed?: string;
   extraClass?: string;
+  objectPosition?: string;
 }
 
 export function KenBurns({
@@ -14,6 +15,7 @@ export function KenBurns({
   durationMs = 7000,
   seed = 'k',
   extraClass = '',
+  objectPosition = '50% 50%',
 }: KenBurnsProps) {
   const kenClass = pickKenVariant(seed);
   return (
@@ -24,6 +26,7 @@ export function KenBurns({
       className={`absolute inset-0 w-full h-full select-none ${kenClass} ${extraClass}`}
       style={{
         objectFit: 'cover',
+        objectPosition,
         willChange: 'transform',
         ['--ken-ms' as string]: `${durationMs}ms`,
       }}

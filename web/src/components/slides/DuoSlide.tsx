@@ -1,5 +1,6 @@
 import type { Mode, SlideSpec } from '../../types';
 import { hash01 } from '../../lib/hash';
+import { objectPositionForPhoto } from '../../lib/focalPoint';
 import { KenBurns } from './KenBurns';
 
 interface Props {
@@ -27,13 +28,13 @@ export function DuoSlide({ slide, mode, durationMs }: Props) {
           className="relative overflow-hidden anim-from-left"
           style={{ borderRadius: isCele ? 4 : 2 }}
         >
-          <KenBurns src={a.url1024} seed={`${slide.id}-a`} durationMs={durationMs} />
+          <KenBurns src={a.url1024} seed={`${slide.id}-a`} durationMs={durationMs} objectPosition={objectPositionForPhoto(a)} />
         </div>
         <div
           className="relative overflow-hidden anim-from-right anim-delay-1"
           style={{ borderRadius: isCele ? 4 : 2 }}
         >
-          <KenBurns src={b.url1024} seed={`${slide.id}-b`} durationMs={durationMs} />
+          <KenBurns src={b.url1024} seed={`${slide.id}-b`} durationMs={durationMs} objectPosition={objectPositionForPhoto(b)} />
         </div>
       </div>
     </div>

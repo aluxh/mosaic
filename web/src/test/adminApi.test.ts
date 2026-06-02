@@ -21,13 +21,13 @@ describe('adminApi', () => {
   it('fetchAdminPhotos sends the bearer token and maps rows', async () => {
     const fn = mockFetch(() => ({
       ok: true,
-      json: async () => [{ id: 'p1', event_id: 'e1', source: 'seed', url: '/u', url_1024: '/a', url_320: '/b', credit: 'C', created_at: 1, hidden: 1 }],
+      json: async () => [{ id: 'p1', event_id: 'e1', source: 'seed', url: '/u', url_1024: '/a', url_320: '/b', credit: 'C', created_at: 1, hidden: 1, focal_x: 0.3, focal_y: 0.7 }],
     }));
     const photos = await fetchAdminPhotos('e1', 'tok');
     expect(fn).toHaveBeenCalledWith('/api/events/e1/admin/photos', expect.objectContaining({
       headers: { Authorization: 'Bearer tok' },
     }));
-    expect(photos[0]).toMatchObject({ id: 'p1', hidden: true, source: 'seed', url320: '/b' });
+    expect(photos[0]).toMatchObject({ id: 'p1', hidden: true, source: 'seed', url320: '/b', focalX: 0.3, focalY: 0.7 });
   });
 
   it('setPhotoHidden PATCHes with the hidden body', async () => {

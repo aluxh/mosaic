@@ -10,6 +10,8 @@ const okPhoto = {
   url_320: '/data/variants/remembrance/p1-320.png',
   credit: 'Maya',
   created_at: 1,
+  focal_x: 0.25,
+  focal_y: 0.75,
   message: null,
 };
 const okMessage = {
@@ -65,7 +67,33 @@ describe('postMessage', () => {
 });
 
 describe('fetchPhotos', () => {
-  it('maps url_1024 and url_320 to url1024 and url320', async () => {
+  it('maps photo URLs and focal fields', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          id: 'p1',
+          event_id: 'remembrance',
+          source: 'seed',
+          url: '/data/seeds/remembrance/p1.jpg',
+          url_1024: '/data/variants/remembrance/p1-1024.jpg',
+          url_320: '/data/variants/remembrance/p1-320.jpg',
+          credit: 'Maya',
+          created_at: 5,
+          focal_x: 0.2,
+          focal_y: 0.8,
+        },
+      ],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const photos = await fetchPhotos('remembrance');
+    expect(photos[0]!.url1024).toBe('/data/variants/remembrance/p1-1024.jpg');
+    expect(photos[0]!.url320).toBe('/data/variants/remembrance/p1-320.jpg');
+    expect(photos[0]!.url).toBe('/data/seeds/remembrance/p1.jpg');
+    expect(photos[0]).toMatchObject({ focalX: 0.2, focalY: 0.8 });
+  });
+
+  it('defaults missing focal fields to center', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => [
@@ -83,9 +111,7 @@ describe('fetchPhotos', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const photos = await fetchPhotos('remembrance');
-    expect(photos[0]!.url1024).toBe('/data/variants/remembrance/p1-1024.jpg');
-    expect(photos[0]!.url320).toBe('/data/variants/remembrance/p1-320.jpg');
-    expect(photos[0]!.url).toBe('/data/seeds/remembrance/p1.jpg');
+    expect(photos[0]).toMatchObject({ focalX: 0.5, focalY: 0.5 });
   });
 });
 
