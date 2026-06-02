@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import * as api from '../lib/api';
 import * as adminApi from '../lib/adminApi';
 import { AdminApp } from '../AdminApp';
@@ -13,7 +13,7 @@ const event: Event = {
 const photo = (id: string, hidden = false): AdminPhoto => ({
   id, eventId: 'remembrance', source: 'seed', url: `/${id}.jpg`,
   url1024: `/${id}-1024.jpg`, url320: `/${id}-320.jpg`, credit: 'C', createdAt: 0, hidden,
-  focalX: 0.5, focalY: 0.5,
+  focalX: 0.5, focalY: 0.5, focalSource: 'unknown',
 });
 
 const message = (id: string, hidden = false): AdminMessage => ({
@@ -130,5 +130,44 @@ describe('AdminApp message curation', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirm delete/i }));
     await waitFor(() => expect(spy).toHaveBeenCalledWith('remembrance', 'm1', 'admintok'));
     await waitFor(() => expect(screen.queryByText('msg m1')).not.toBeInTheDocument());
+  });
+});
+
+describe('AdminApp focal editing', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect);
+    window.location.hash = '#t=admintok';
+    vi.spyOn(adminApi, 'fetchAdminPhotos').mockResolvedValue([
+      { ...photo('p1'), focalX: 0.25, focalY: 0.75, focalSource: 'detected' },
+    ]);
+    vi.spyOn(adminApi, 'fetchAdminMessages').mockResolvedValue([]);
+  });
+
+  it('thumbnails crop with focal-aware object-position', async () => {
+    render(<AdminApp />);
+    const img = await screen.findByRole('img');
+    expect(img.style.objectPosition).toBe('25% 75%');
+  });
+
+  it('clicking a photo opens the focal editor modal', async () => {
+    render(<AdminApp />);
+    await screen.findByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: /edit focal point/i }));
+    expect(await screen.findByRole('dialog', { name: /edit focal point/i })).toBeInTheDocument();
+  });
+
+  it('saving the editor calls updatePhotoFocal and updates the thumbnail crop', async () => {
+    const spy = vi.spyOn(adminApi, 'updatePhotoFocal').mockResolvedValue();
+    render(<AdminApp />);
+    await screen.findByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: /edit focal point/i }));
+    await screen.findByRole('dialog');
+    fireEvent.pointerDown(screen.getByTestId('focal-image'), { clientX: 10, clientY: 90 });
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('remembrance', 'p1', 0.1, 0.9, 'admintok'));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByRole('img').style.objectPosition).toBe('10% 90%');
   });
 });

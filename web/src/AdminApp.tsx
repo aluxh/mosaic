@@ -8,7 +8,11 @@ import {
   fetchAdminMessages,
   setMessageHidden,
   deleteMessage,
+  updatePhotoFocal,
+  recalculatePhotoFocal,
 } from './lib/adminApi';
+import { objectPositionForPhoto } from './lib/focalPoint';
+import { FocalEditor } from './components/FocalEditor';
 import { readToken } from './lib/token';
 import type { AdminMessage, AdminPhoto, Event, TransitionStyle } from './types';
 
@@ -23,6 +27,7 @@ export function AdminApp() {
   const [style, setStyle] = useState<TransitionStyle>('default');
   const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     document.body.classList.add('admin-scroll');
@@ -121,6 +126,27 @@ export function AdminApp() {
     }
   };
 
+  const editing = photos.find((p) => p.id === editingId) ?? null;
+
+  const onSaveFocal = async (focalX: number, focalY: number) => {
+    if (!event || !editingId) return;
+    await updatePhotoFocal(event.id, editingId, focalX, focalY, token);
+    setPhotos((cur) =>
+      cur.map((x) => (x.id === editingId ? { ...x, focalX, focalY, focalSource: 'manual' } : x)),
+    );
+  };
+
+  const onRecalcFocal = async () => {
+    if (!event || !editingId) return { focalX: 0.5, focalY: 0.5 };
+    const r = await recalculatePhotoFocal(event.id, editingId, token);
+    setPhotos((cur) =>
+      cur.map((x) =>
+        x.id === editingId ? { ...x, focalX: r.focalX, focalY: r.focalY, focalSource: r.focalSource } : x,
+      ),
+    );
+    return { focalX: r.focalX, focalY: r.focalY };
+  };
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
@@ -159,15 +185,25 @@ export function AdminApp() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {photos.map((p) => (
             <div key={p.id} className={`rounded-lg overflow-hidden border border-neutral-800 ${p.hidden ? 'opacity-40' : ''}`}>
-              <div className="relative aspect-square bg-neutral-900">
-                <img src={p.url320} alt={p.id} className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setEditingId(p.id)}
+                aria-label={`Edit focal point for ${p.id}`}
+                className="relative block aspect-square w-full bg-neutral-900"
+              >
+                <img
+                  src={p.url320}
+                  alt={p.id}
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: objectPositionForPhoto(p) }}
+                />
                 <span className="absolute top-1 left-1 mono text-[0.55rem] uppercase tracking-wide px-1.5 py-0.5 rounded bg-black/60">
                   {p.source === 'seed' ? 'Seed' : 'Guest'}
                 </span>
                 {p.hidden && (
                   <span className="absolute bottom-1 left-1 mono text-[0.55rem] uppercase px-1.5 py-0.5 rounded bg-black/70">Hidden</span>
                 )}
-              </div>
+              </button>
               <div className="flex">
                 <button onClick={() => onToggle(p)} className="flex-1 py-2 text-xs mono border-r border-neutral-800 hover:bg-neutral-800">
                   {p.hidden ? 'Show' : 'Hide'}
@@ -207,6 +243,15 @@ export function AdminApp() {
             </div>
           ))}
         </div>
+      )}
+
+      {editing && (
+        <FocalEditor
+          photo={editing}
+          onSave={onSaveFocal}
+          onRecalculate={onRecalcFocal}
+          onClose={() => setEditingId(null)}
+        />
       )}
     </div>
   );
