@@ -1,3 +1,4 @@
+import QRCode from 'react-qr-code';
 import type { Mode, SlideSpec } from '../../types';
 
 interface Props {
@@ -68,12 +69,17 @@ export function TitleCardSlide({ slide, mode }: Props) {
             </span>
           </div>
 
-          <div className="mt-8 flex items-center justify-center gap-3 anim-fade-up anim-delay-3">
-            <span className="w-6 h-px" style={{ background: 'var(--ink-soft)' }}></span>
-            <span className="mono text-[0.62rem] tracking-[0.28em] uppercase text-ink-soft">
-              mosaic.live / {e.shortCode}
-            </span>
-            <span className="w-6 h-px" style={{ background: 'var(--ink-soft)' }}></span>
+          <div className="mt-8 flex flex-col items-center gap-2 anim-fade-up anim-delay-3">
+            <div style={{ background: 'white', padding: '6px', borderRadius: '6px' }}>
+              <QRCode value={`${window.location.origin}/join`} size={120} />
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="w-6 h-px" style={{ background: 'var(--ink-soft)' }}></span>
+              <span className="mono text-[0.62rem] tracking-[0.28em] uppercase text-ink-soft">
+                {window.location.hostname}/join
+              </span>
+              <span className="w-6 h-px" style={{ background: 'var(--ink-soft)' }}></span>
+            </div>
           </div>
         </div>
       </div>
