@@ -74,3 +74,14 @@ describe('AdminApp curation', () => {
     await waitFor(() => expect(spy).toHaveBeenCalledWith('remembrance', 'cinematic', 'admintok'));
   });
 });
+
+describe('AdminApp scroll enablement', () => {
+  it('adds admin-scroll to the body while mounted and removes it on unmount', () => {
+    window.location.hash = '#t=admintok';
+    vi.spyOn(adminApi, 'fetchAdminPhotos').mockResolvedValue([]);
+    const { unmount } = render(<AdminApp />);
+    expect(document.body.classList.contains('admin-scroll')).toBe(true);
+    unmount();
+    expect(document.body.classList.contains('admin-scroll')).toBe(false);
+  });
+});

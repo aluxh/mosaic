@@ -13,6 +13,11 @@ export function AdminApp() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
+    document.body.classList.add('admin-scroll');
+    return () => document.body.classList.remove('admin-scroll');
+  }, []);
+
+  useEffect(() => {
     if (!token) return;
     fetchEvents()
       .then((events) => {

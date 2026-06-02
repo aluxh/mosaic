@@ -37,6 +37,12 @@ body {
   background: #000;
 }
 
+/* The admin dashboard (/admin) is a normal-flow page that can exceed the
+   viewport; re-enable scrolling that the wall's global clip suppresses. */
+body.admin-scroll {
+  overflow: auto;
+}
+
 .serif {
   font-family: 'Instrument Serif', 'Times New Roman', serif;
   font-weight: 400;
