@@ -63,7 +63,7 @@ export interface InsertMessageInput {
 }
 
 export function insertMessage(db: DB, m: InsertMessageInput): MessageRow {
-  const row = { ...m, photo_id: m.photo_id ?? null };
+  const row = { ...m, photo_id: m.photo_id ?? null, hidden: 0 };
   db.prepare(
     `INSERT INTO messages (id, event_id, name, text, created_at, photo_id)
      VALUES (@id, @event_id, @name, @text, @created_at, @photo_id)`,
