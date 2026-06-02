@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe('backfillFocalPoints', () => {
-  it('updates default focal rows from source originals', async () => {
+  it('processes only unknown rows and stamps the detected source', async () => {
     const seedDir = seedsDirFor(paths, eventId);
     fs.mkdirSync(seedDir, { recursive: true });
     fs.writeFileSync(path.join(seedDir, 'a.jpg'), await makeJpeg());
@@ -74,16 +74,21 @@ describe('backfillFocalPoints', () => {
       filename: 'a.jpg',
       credit: 'Host',
       created_at: 1,
+      // focal_source defaults to 'unknown'
     });
 
     await expect(backfillFocalPoints(db, paths, eventId)).resolves.toEqual({ updated: 1, skipped: 0 });
 
-    expect(listAllPhotos(db, eventId)[0]).toMatchObject({ focal_x: 0.25, focal_y: 0.4 });
+    expect(listAllPhotos(db, eventId)[0]).toMatchObject({
+      focal_x: 0.25,
+      focal_y: 0.4,
+      focal_source: 'detected',
+    });
   });
 
-  it('skips non-default rows and missing originals', async () => {
+  it('skips manual, detected, and fallback rows and missing originals', async () => {
     insertPhoto(db, {
-      id: 'already',
+      id: 'manual',
       event_id: eventId,
       source: 'seed',
       filename: 'a.jpg',
@@ -91,16 +96,31 @@ describe('backfillFocalPoints', () => {
       created_at: 1,
       focal_x: 0.2,
       focal_y: 0.3,
+      focal_source: 'manual',
     });
     insertPhoto(db, {
-      id: 'missing',
+      id: 'fallback',
+      event_id: eventId,
+      source: 'seed',
+      filename: 'a.jpg',
+      credit: 'Host',
+      created_at: 2,
+      focal_source: 'fallback',
+    });
+    insertPhoto(db, {
+      id: 'missing-unknown',
       event_id: eventId,
       source: 'seed',
       filename: 'missing.jpg',
       credit: 'Host',
-      created_at: 2,
+      created_at: 3,
     });
 
-    await expect(backfillFocalPoints(db, paths, eventId)).resolves.toEqual({ updated: 0, skipped: 2 });
+    await expect(backfillFocalPoints(db, paths, eventId)).resolves.toEqual({ updated: 0, skipped: 3 });
+    expect(listAllPhotos(db, eventId).find((r) => r.id === 'manual')).toMatchObject({
+      focal_x: 0.2,
+      focal_y: 0.3,
+      focal_source: 'manual',
+    });
   });
 });

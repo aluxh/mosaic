@@ -19,7 +19,7 @@ export async function backfillFocalPoints(
   let skipped = 0;
 
   for (const row of listAllPhotos(db, eventId)) {
-    if (row.focal_x !== 0.5 || row.focal_y !== 0.5) {
+    if (row.focal_source !== 'unknown') {
       skipped += 1;
       continue;
     }
@@ -32,7 +32,7 @@ export async function backfillFocalPoints(
     }
 
     const focal = await detectFocalPoint(fs.readFileSync(originalPath));
-    if (updatePhotoFocalPoint(db, eventId, row.id, focal.focal_x, focal.focal_y)) {
+    if (updatePhotoFocalPoint(db, eventId, row.id, focal.focal_x, focal.focal_y, focal.source)) {
       updated += 1;
     }
   }
