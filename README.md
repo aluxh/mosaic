@@ -164,6 +164,33 @@ token; the bare URL is read-only.
 > enforcement on invalidates every existing QR poster (old URLs carry no
 > token). Set `TOKEN_SECRET` → `mint-token` → reprint the QR.
 
+### Admin curation
+
+The `/admin` page lets you hide, show, or delete content from the wall in
+real time without touching the database directly.
+
+**What you can curate:**
+
+- **Photos tab** — hide/show guest and seed photos; delete photos permanently
+- **Messages tab** — hide/show or delete standalone text messages (messages
+  without a photo); hiding a photo automatically suppresses its caption from
+  appearing as a text slide
+
+**Mint an admin token:**
+
+```bash
+docker compose exec api npm run mint-token -- --admin https://your-event-host
+```
+
+The `--admin` flag produces a URL of the form
+`https://your-event-host/admin#t=<token>`. Open that URL in a browser — no
+login form, just paste or bookmark the link. Keep it private; anyone with it
+can modify the wall.
+
+The admin token uses the same `TOKEN_SECRET` and `TOKEN_TTL_DAYS` settings as
+the guest token. Minting a new admin token does not invalidate the old one
+until it expires naturally (or you rotate `TOKEN_SECRET`).
+
 ### Getting the QR URL without SSH (boot log)
 
 On every boot the API also mints a token and prints it to stdout, so you can

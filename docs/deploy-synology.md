@@ -120,6 +120,32 @@ contribute sheet.
 
 ---
 
+## Step 5 — Get the admin curation link
+
+The `/admin` page lets you hide, show, or delete photos and messages from the
+wall in real time. Mint a private admin link:
+
+```bash
+docker compose exec api npm run mint-token -- --admin https://your-event.yourdomain.com
+```
+
+The output looks like:
+```
+eyJlaWQiOiJyZW1lbWJyYW5jZSIsImV4cCI6...
+Expires: 2026-06-16T10:00:00.000Z
+https://your-event.yourdomain.com/admin#t=eyJ...
+```
+
+Open the printed URL in a browser. The **Photos** tab lets you hide/show/delete
+guest and seed photos. The **Messages** tab lists standalone text messages
+(without a photo) so you can hide or remove them. Hiding a photo automatically
+suppresses its caption on the wall too.
+
+Keep this link private — anyone who has it can modify the wall. If you need to
+revoke access, rotate `TOKEN_SECRET` and redeploy.
+
+---
+
 ## Updating to a new version
 
 When a new Mosaic version is released:

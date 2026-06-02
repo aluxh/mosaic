@@ -169,4 +169,4 @@ placing files, restart the stack so the seed indexer re-scans:
 docker compose restart api
 ```
 
-Only JPEG/JPG/PNG files are indexed. Files in subdirectories are ignored.
+Only JPEG/JPG/PNG/HEIC files are indexed. Files in subdirectories are ignored. HEIC files are transcoded to JPEG on ingest.
