@@ -33,6 +33,8 @@ const seedPhoto: Photo = {
   url320: '/data/variants/remembrance/photo-320.jpg',
   credit: '',
   createdAt: 0,
+  focalX: 0.5,
+  focalY: 0.5,
 };
 
 const seedMessage: Message = {
@@ -53,6 +55,8 @@ const n1: Photo = {
   url320: '/p1-320.jpg',
   credit: '',
   createdAt: 0,
+  focalX: 0.5,
+  focalY: 0.5,
 };
 const n2: Photo = { ...n1, id: 'n2', url: '/p2.jpg', url1024: '/p2-1024.jpg', url320: '/p2-320.jpg' };
 const n3: Photo = { ...n1, id: 'n3', url: '/p3.jpg', url1024: '/p3-1024.jpg', url320: '/p3-320.jpg' };

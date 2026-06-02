@@ -10,6 +10,8 @@ interface ApiAdminPhoto {
   credit: string;
   created_at: number;
   hidden: number;
+  focal_x?: number;
+  focal_y?: number;
 }
 
 const toAdminPhoto = (p: ApiAdminPhoto): AdminPhoto => ({
@@ -22,6 +24,8 @@ const toAdminPhoto = (p: ApiAdminPhoto): AdminPhoto => ({
   credit: p.credit,
   createdAt: p.created_at,
   hidden: p.hidden === 1,
+  focalX: p.focal_x ?? 0.5,
+  focalY: p.focal_y ?? 0.5,
 });
 
 interface ApiAdminMessage {

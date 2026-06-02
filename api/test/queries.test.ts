@@ -20,6 +20,7 @@ import {
   listAdminMessages,
   setMessageHidden,
   deleteMessage,
+  updatePhotoFocalPoint,
 } from '../src/db/queries.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
@@ -153,6 +154,44 @@ describe('photos queries', () => {
     });
     const rows = listPhotos(db, 'remembrance');
     expect(rows.map((r) => r.id)).toEqual(['p1', 'p2']);
+  });
+
+  it('insertPhoto persists focal points and defaults them to center', () => {
+    insertPhoto(db, {
+      id: 'focal',
+      event_id: 'remembrance',
+      source: 'upload',
+      filename: 'f.jpg',
+      credit: 'F',
+      created_at: 1,
+      focal_x: 0.25,
+      focal_y: 0.75,
+    });
+    insertPhoto(db, {
+      id: 'center',
+      event_id: 'remembrance',
+      source: 'upload',
+      filename: 'c.jpg',
+      credit: 'C',
+      created_at: 2,
+    });
+    const rows = listPhotos(db, 'remembrance');
+    expect(rows.find((r) => r.id === 'focal')).toMatchObject({ focal_x: 0.25, focal_y: 0.75 });
+    expect(rows.find((r) => r.id === 'center')).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
+  });
+
+  it('updatePhotoFocalPoint updates only the matching event row', () => {
+    insertPhoto(db, {
+      id: 'p1',
+      event_id: 'remembrance',
+      source: 'upload',
+      filename: 'a.jpg',
+      credit: 'A',
+      created_at: 1,
+    });
+    expect(updatePhotoFocalPoint(db, 'celebration', 'p1', 0.2, 0.3)).toBe(false);
+    expect(updatePhotoFocalPoint(db, 'remembrance', 'p1', 0.2, 0.3)).toBe(true);
+    expect(listPhotos(db, 'remembrance')[0]).toMatchObject({ focal_x: 0.2, focal_y: 0.3 });
   });
 });
 

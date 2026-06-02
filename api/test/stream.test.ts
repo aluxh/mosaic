@@ -17,6 +17,10 @@ import { makeStoragePaths, type StoragePaths } from '../src/lib/storage.js';
 import { makeRequireToken } from '../src/lib/auth.js';
 import { signToken } from '../src/lib/token.js';
 import { createLiveUpdateBus } from '../src/lib/liveUpdates.js';
+import {
+  __resetFocalPointForTest,
+  __setFocalPointDetectorForTest,
+} from '../src/lib/focalPoint.js';
 
 const TEST_SECRET = 'stream-test-secret';
 const validAuth = (eid = 'remembrance'): string =>
@@ -74,10 +78,12 @@ beforeEach(async () => {
     short_code: 'X1',
     transition_style: 'default',
   });
+  __setFocalPointDetectorForTest(async () => []);
   await buildApp();
 });
 
 afterEach(async () => {
+  __resetFocalPointForTest();
   await app.close();
   db.close();
   fs.rmSync(tmpDir, { recursive: true, force: true });

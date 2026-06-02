@@ -13,6 +13,7 @@ const event: Event = {
 const photo = (id: string, hidden = false): AdminPhoto => ({
   id, eventId: 'remembrance', source: 'seed', url: `/${id}.jpg`,
   url1024: `/${id}-1024.jpg`, url320: `/${id}-320.jpg`, credit: 'C', createdAt: 0, hidden,
+  focalX: 0.5, focalY: 0.5,
 });
 
 const message = (id: string, hidden = false): AdminMessage => ({

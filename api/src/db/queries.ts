@@ -32,14 +32,17 @@ export interface InsertPhotoInput {
   filename: string;
   credit: string;
   created_at: number;
+  focal_x?: number;
+  focal_y?: number;
 }
 
 export function insertPhoto(db: DB, p: InsertPhotoInput): PhotoRow {
+  const row = { ...p, focal_x: p.focal_x ?? 0.5, focal_y: p.focal_y ?? 0.5 };
   db.prepare(
-    `INSERT INTO photos (id, event_id, source, filename, credit, created_at)
-     VALUES (@id, @event_id, @source, @filename, @credit, @created_at)`,
-  ).run(p);
-  return p as PhotoRow;
+    `INSERT INTO photos (id, event_id, source, filename, credit, created_at, focal_x, focal_y)
+     VALUES (@id, @event_id, @source, @filename, @credit, @created_at, @focal_x, @focal_y)`,
+  ).run(row);
+  return { ...row, hidden: 0 } as PhotoRow;
 }
 
 export function photoExists(db: DB, id: string): boolean {
@@ -140,4 +143,17 @@ export function deletePhotoCascade(db: DB, eventId: string, photoId: string): Ph
 
 export function updateTransitionStyle(db: DB, eventId: string, style: string): void {
   db.prepare('UPDATE events SET transition_style = ? WHERE id = ?').run(style, eventId);
+}
+
+export function updatePhotoFocalPoint(
+  db: DB,
+  eventId: string,
+  photoId: string,
+  focal_x: number,
+  focal_y: number,
+): boolean {
+  const info = db
+    .prepare('UPDATE photos SET focal_x = ?, focal_y = ? WHERE id = ? AND event_id = ?')
+    .run(focal_x, focal_y, photoId, eventId);
+  return info.changes > 0;
 }

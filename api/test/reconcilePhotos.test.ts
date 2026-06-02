@@ -17,6 +17,10 @@ import {
 import { reconcileMissingPhotos } from '../src/lib/reconcilePhotos.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeStoragePaths, seedsDirFor, type StoragePaths, uploadsDirFor, variantsDirFor } from '../src/lib/storage.js';
+import {
+  __resetFocalPointForTest,
+  __setFocalPointDetectorForTest,
+} from '../src/lib/focalPoint.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
 const SCHEMA = fs
@@ -56,9 +60,11 @@ beforeEach(() => {
     short_code: 'X1',
     transition_style: 'default',
   });
+  __setFocalPointDetectorForTest(async () => []);
 });
 
 afterEach(() => {
+  __resetFocalPointForTest();
   db.close();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });

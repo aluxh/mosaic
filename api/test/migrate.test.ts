@@ -84,4 +84,29 @@ describe('migrate', () => {
     expect(n).toBe(1);
     db.close();
   });
+
+  it('adds photos focal point columns defaulting to 0.5', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    const cols = db.prepare('PRAGMA table_info(photos)').all() as {
+      name: string;
+      dflt_value: string | null;
+    }[];
+    expect(cols.find((c) => c.name === 'focal_x')?.dflt_value).toBe('0.5');
+    expect(cols.find((c) => c.name === 'focal_y')?.dflt_value).toBe('0.5');
+    db.close();
+  });
+
+  it('records 005_photo_focal_point.sql exactly once', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    migrate(db);
+    const n = (
+      db
+        .prepare("SELECT count(*) AS n FROM schema_migrations WHERE filename = '005_photo_focal_point.sql'")
+        .get() as { n: number }
+    ).n;
+    expect(n).toBe(1);
+    db.close();
+  });
 });

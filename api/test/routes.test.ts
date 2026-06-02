@@ -18,6 +18,10 @@ import { makeRequireToken, makeRequireAdmin } from '../src/lib/auth.js';
 import { registerAdminRoutes } from '../src/routes/admin.js';
 import { signToken } from '../src/lib/token.js';
 import { variantFilename } from '../src/lib/variants.js';
+import {
+  __resetFocalPointForTest,
+  __setFocalPointDetectorForTest,
+} from '../src/lib/focalPoint.js';
 
 const TEST_SECRET = 'routes-test-secret';
 
@@ -111,10 +115,12 @@ beforeEach(async () => {
     short_code: 'X1',
     transition_style: 'default',
   });
+  __setFocalPointDetectorForTest(async () => []);
   await buildApp();
 });
 
 afterEach(async () => {
+  __resetFocalPointForTest();
   await app.close();
   db.close();
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -142,12 +148,13 @@ describe('GET /api/events/:id/photos', () => {
     await indexSeedsForEvent(db, paths, 'remembrance');
     const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ url: string; url_1024: string; url_320: string; source: string }>;
+    const body = res.json() as Array<{ url: string; url_1024: string; url_320: string; source: string; focal_x: number; focal_y: number }>;
     expect(body).toHaveLength(1);
     expect(body[0]?.source).toBe('seed');
     expect(body[0]?.url).toBe('/data/seeds/remembrance/one.jpg');
     expect(body[0]?.url_1024).toBe('/data/variants/remembrance/one-1024.jpg');
     expect(body[0]?.url_320).toBe('/data/variants/remembrance/one-320.jpg');
+    expect(body[0]).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
   });
 
   it('rate limits repeated photo list requests', async () => {
@@ -253,6 +260,8 @@ describe('POST /api/events/:id/photos', () => {
       url_1024: string;
       url_320: string;
       source: string;
+      focal_x: number;
+      focal_y: number;
     };
     expect(body.source).toBe('upload');
     expect(body.filename.endsWith('.png')).toBe(true);
@@ -262,6 +271,7 @@ describe('POST /api/events/:id/photos', () => {
     ).toBe(true);
     expect(body.url_1024).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 1024)}`);
     expect(body.url_320).toBe(`/data/variants/remembrance/${variantFilename(body.filename, 320)}`);
+    expect(body).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
     const vdir = variantsDirFor(paths, 'remembrance');
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 1024)))).toBe(true);
     expect(fs.existsSync(path.join(vdir, variantFilename(body.filename, 320)))).toBe(true);
@@ -562,9 +572,10 @@ describe('admin routes', () => {
     db.prepare('UPDATE photos SET hidden = 1 WHERE id = ?').run('a1');
     const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as Array<{ id: string; hidden: number; source: string; url: string; url_320: string }>;
+    const body = res.json() as Array<{ id: string; hidden: number; source: string; url: string; url_320: string; focal_x: number; focal_y: number }>;
     expect(body[0]).toMatchObject({ id: 'a1', hidden: 1, source: 'upload' });
     expect(body[0]?.url_320).toContain('320');
+    expect(body[0]).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
   });
 
   it('PATCH admin/photos toggles visibility; public list reflects it', async () => {

@@ -5,6 +5,7 @@ import { insertPhoto, listEvents, photoExists } from '../db/queries.js';
 import { seedsDirFor, type StoragePaths } from './storage.js';
 import { ingestImage, MAX_FILE_BYTES } from './imageIngest.js';
 import { ensureVariants } from './variants.js';
+import { detectFocalPoint } from './focalPoint.js';
 
 const ALLOWED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
 
@@ -69,6 +70,7 @@ export async function indexSeedsForEvent(
       fs.writeFileSync(file, result.buf);
     }
 
+    const focal = await detectFocalPoint(result.buf);
     insertPhoto(db, {
       id: `seed-${eventId}-${storedName}`,
       event_id: eventId,
@@ -76,6 +78,7 @@ export async function indexSeedsForEvent(
       filename: storedName,
       credit: 'Host',
       created_at: now(),
+      ...focal,
     });
     await ensureVariants(paths.variantsDir, eventId, storedName, result.buf, result.format);
     inserted += 1;

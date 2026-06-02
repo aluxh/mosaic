@@ -22,6 +22,8 @@ interface ApiPhoto {
   url_320: string;
   credit: string;
   created_at: number;
+  focal_x?: number;
+  focal_y?: number;
 }
 
 interface ApiMessage {
@@ -55,6 +57,8 @@ const toPhoto = (p: ApiPhoto): Photo => ({
   url320: p.url_320,
   credit: p.credit,
   createdAt: p.created_at,
+  focalX: p.focal_x ?? 0.5,
+  focalY: p.focal_y ?? 0.5,
 });
 
 const toMessage = (m: ApiMessage): Message => ({

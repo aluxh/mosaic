@@ -10,6 +10,7 @@ import { SEED_EVENTS, resolveEventMode, applyEventOverrides } from './lib/seedEv
 import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { backfillVariants } from './lib/backfillVariants.js';
+import { backfillFocalPoints } from './lib/backfillFocalPoints.js';
 import { reconcileMissingPhotos } from './lib/reconcilePhotos.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken, makeRequireAdmin } from './lib/auth.js';
@@ -50,6 +51,10 @@ async function main() {
     console.warn(`[seed] skipped ${filename}: ${reason}`);
   }
   await backfillVariants(db, paths, event.id);
+  const focalResult = await backfillFocalPoints(db, paths, event.id);
+  if (focalResult.updated > 0) {
+    console.warn(`[focal] backfilled ${focalResult.updated} photo focal points for ${event.id}`);
+  }
 
   const app = Fastify({
     logger: { level: 'info' },

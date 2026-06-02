@@ -26,6 +26,8 @@ const makePhotos = (n: number): Photo[] =>
     url320: `/data/variants/celebration/p${i + 1}-320.jpg`,
     credit: `Guest ${i + 1}`,
     createdAt: 1000 + i,
+    focalX: 0.5,
+    focalY: 0.5,
   }));
 
 const makeMessages = (n: number): Message[] =>

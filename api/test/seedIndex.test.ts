@@ -8,6 +8,10 @@ import { applySchemaFromString } from '../src/db/migrate.js';
 import { upsertEvent, listPhotos } from '../src/db/queries.js';
 import { indexSeedsForEvent } from '../src/lib/seedIndex.js';
 import { makeStoragePaths, type StoragePaths, variantsDirFor } from '../src/lib/storage.js';
+import {
+  __resetFocalPointForTest,
+  __setFocalPointDetectorForTest,
+} from '../src/lib/focalPoint.js';
 
 const migrationsDir = path.resolve(__dirname, '..', 'migrations');
 const SCHEMA = fs
@@ -64,9 +68,11 @@ beforeEach(() => {
     short_code: 'X1',
     transition_style: 'default',
   });
+  __setFocalPointDetectorForTest(async () => [{ x: 0, y: 0, width: 1, height: 1 }]);
 });
 
 afterEach(() => {
+  __resetFocalPointForTest();
   db.close();
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
@@ -94,6 +100,7 @@ describe('indexSeedsForEvent', () => {
     expect(result.skipped_reasons).toHaveLength(0);
     const filenames = listPhotos(db, 'remembrance').map((r) => r.filename).sort();
     expect(filenames).toEqual(['a.jpg', 'b.png', 'c.webp']);
+    expect(listPhotos(db, 'remembrance')[0]).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
   });
 
   it('indexes a HEIC seed as a .jpg photo, renames on disk, gets JPEG variants', async (ctx) => {
