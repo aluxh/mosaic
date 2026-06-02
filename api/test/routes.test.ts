@@ -634,6 +634,77 @@ describe('admin routes', () => {
     expect([200, 500]).toContain(res.statusCode);
     expect(fs.existsSync(path.resolve(paths.uploadsDir, '..', 'escape.jpg'))).toBe(false);
   });
+
+  it('GET admin/photos includes focal_source', async () => {
+    await seedUploadPhoto('fs1');
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    const body = res.json() as Array<{ id: string; focal_source: string }>;
+    expect(body.find((p) => p.id === 'fs1')).toMatchObject({ focal_source: 'unknown' });
+  });
+
+  it('PATCH admin/photos/:id/focal validates, sets manual, and 404s for missing', async () => {
+    await seedUploadPhoto('fc1');
+
+    const ok = await app.inject({
+      method: 'PATCH',
+      url: '/api/events/remembrance/admin/photos/fc1/focal',
+      payload: { focal_x: 0.42, focal_y: 0.31 },
+      headers: { authorization: adminAuth() },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual({ ok: true });
+
+    const list = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    expect((list.json() as Array<{ id: string; focal_x: number; focal_y: number; focal_source: string }>).find((p) => p.id === 'fc1'))
+      .toMatchObject({ focal_x: 0.42, focal_y: 0.31, focal_source: 'manual' });
+
+    for (const payload of [{ focal_x: 1.2, focal_y: 0.5 }, { focal_x: -0.1, focal_y: 0.5 }, { focal_x: 'x', focal_y: 0.5 }, { focal_y: 0.5 }]) {
+      const bad = await app.inject({ method: 'PATCH', url: '/api/events/remembrance/admin/photos/fc1/focal', payload, headers: { authorization: adminAuth() } });
+      expect(bad.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+
+    const missing = await app.inject({
+      method: 'PATCH',
+      url: '/api/events/remembrance/admin/photos/nope/focal',
+      payload: { focal_x: 0.5, focal_y: 0.5 },
+      headers: { authorization: adminAuth() },
+    });
+    expect(missing.statusCode).toBe(404);
+  });
+
+  it('PATCH admin/photos/:id/focal requires admin (401 for guest/no token)', async () => {
+    await seedUploadPhoto('fc2');
+    const payload = { focal_x: 0.5, focal_y: 0.5 };
+    const url = '/api/events/remembrance/admin/photos/fc2/focal';
+    expect((await app.inject({ method: 'PATCH', url, payload })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'PATCH', url, payload, headers: { authorization: validAuth() } })).statusCode).toBe(401);
+  });
+
+  it('POST admin/photos/:id/focal/recalculate reruns detection and stores the source', async () => {
+    await seedUploadPhoto('rc1');
+    __setFocalPointDetectorForTest(async () => [{ x: 10, y: 20, width: 30, height: 40 }]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/admin/photos/rc1/focal/recalculate',
+      headers: { authorization: adminAuth() },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ ok: true, focal_source: 'detected' });
+
+    const list = await app.inject({ method: 'GET', url: '/api/events/remembrance/admin/photos', headers: { authorization: adminAuth() } });
+    expect((list.json() as Array<{ id: string; focal_source: string }>).find((p) => p.id === 'rc1'))
+      .toMatchObject({ focal_source: 'detected' });
+  });
+
+  it('POST admin/photos/:id/focal/recalculate 404s for a missing photo', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/events/remembrance/admin/photos/nope/focal/recalculate',
+      headers: { authorization: adminAuth() },
+    });
+    expect(res.statusCode).toBe(404);
+  });
 });
 
 describe('admin message routes', () => {
