@@ -157,6 +157,24 @@ describe('GET /api/events/:id/photos', () => {
     expect(body[0]).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
   });
 
+  it('omits operational columns (focal_source, filename, hidden) from the public payload', async () => {
+    const dir = path.join(paths.seedsDir, 'remembrance');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'pub.jpg'), jpegWithExif);
+    await indexSeedsForEvent(db, paths, 'remembrance');
+
+    const res = await app.inject({ method: 'GET', url: '/api/events/remembrance/photos' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as Array<Record<string, unknown>>;
+    expect(body).toHaveLength(1);
+    expect(body[0]).not.toHaveProperty('focal_source');
+    expect(body[0]).not.toHaveProperty('filename');
+    expect(body[0]).not.toHaveProperty('hidden');
+    // still carries what the wall needs:
+    expect(body[0]).toMatchObject({ source: 'seed', focal_x: 0.5, focal_y: 0.5 });
+    expect(body[0]).toHaveProperty('url');
+  });
+
   it('rate limits repeated photo list requests', async () => {
     await app.close();
     app = Fastify();
