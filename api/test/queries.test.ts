@@ -10,6 +10,7 @@ import {
   listMessages,
   insertPhoto,
   listPhotos,
+  listAllPhotos,
   listAdminPhotos,
   setPhotoHidden,
   getPhotoForEvent,
@@ -165,6 +166,25 @@ describe('admin curation queries', () => {
     setPhotoHidden(db, 'remembrance', 'p1', true);
     expect(listPhotos(db, 'remembrance').map((r) => r.id)).toEqual(['p2']);
     expect(listAdminPhotos(db, 'remembrance').map((r) => r.id)).toEqual(['p1', 'p2']);
+  });
+
+  it('listAllPhotos includes visible and hidden rows for the event', () => {
+    upsertEvent(db, {
+      id: 'celebration',
+      mode: 'celebration',
+      eyebrow: 'Celebrate',
+      title: 'Party',
+      dateline: 'date',
+      place: 'place',
+      invitation: 'invite',
+      brand_sub: 'sub',
+      short_code: 'X2',
+      transition_style: 'default',
+    });
+    insertPhoto(db, { id: 'other', event_id: 'celebration', source: 'seed', filename: 'c.jpg', credit: 'C', created_at: 50 });
+    setPhotoHidden(db, 'remembrance', 'p1', true);
+
+    expect(listAllPhotos(db, 'remembrance').map((r) => r.id)).toEqual(['p1', 'p2']);
   });
 
   it('setPhotoHidden flips the flag and reports update vs no-op', () => {

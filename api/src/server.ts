@@ -10,6 +10,7 @@ import { SEED_EVENTS, resolveEventMode, applyEventOverrides } from './lib/seedEv
 import { upsertEvent } from './db/queries.js';
 import { indexSeedsForEvent } from './lib/seedIndex.js';
 import { backfillVariants } from './lib/backfillVariants.js';
+import { reconcileMissingPhotos } from './lib/reconcilePhotos.js';
 import { makeStoragePaths } from './lib/storage.js';
 import { requireTokenSecret, makeRequireToken, makeRequireAdmin } from './lib/auth.js';
 import { mintToken, formatBootToken } from './lib/token.js';
@@ -40,6 +41,10 @@ async function main() {
   upsertEvent(db, event);
   fs.mkdirSync(path.join(paths.seedsDir, event.id), { recursive: true });
   fs.mkdirSync(path.join(paths.uploadsDir, event.id), { recursive: true });
+  const reconcileResult = reconcileMissingPhotos(db, paths, event.id);
+  if (reconcileResult.removed > 0) {
+    console.warn(`[reconcile] removed ${reconcileResult.removed} stale photo rows for ${event.id}`);
+  }
   const seedResult = await indexSeedsForEvent(db, paths, event.id);
   for (const { filename, reason } of seedResult.skipped_reasons) {
     console.warn(`[seed] skipped ${filename}: ${reason}`);

@@ -53,6 +53,12 @@ export function listPhotos(db: DB, eventId: string): PhotoRow[] {
     .all(eventId) as PhotoRow[];
 }
 
+export function listAllPhotos(db: DB, eventId: string): PhotoRow[] {
+  return db
+    .prepare('SELECT * FROM photos WHERE event_id = ? ORDER BY created_at ASC')
+    .all(eventId) as PhotoRow[];
+}
+
 export interface InsertMessageInput {
   id: string;
   event_id: string;
