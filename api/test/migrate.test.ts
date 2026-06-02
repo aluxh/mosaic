@@ -109,4 +109,28 @@ describe('migrate', () => {
     expect(n).toBe(1);
     db.close();
   });
+
+  it('adds photos.focal_source defaulting to unknown', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    const cols = db.prepare('PRAGMA table_info(photos)').all() as {
+      name: string;
+      dflt_value: string | null;
+    }[];
+    expect(cols.find((c) => c.name === 'focal_source')?.dflt_value).toBe("'unknown'");
+    db.close();
+  });
+
+  it('records 006_photo_focal_source.sql exactly once', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    migrate(db);
+    const n = (
+      db
+        .prepare("SELECT count(*) AS n FROM schema_migrations WHERE filename = '006_photo_focal_source.sql'")
+        .get() as { n: number }
+    ).n;
+    expect(n).toBe(1);
+    db.close();
+  });
 });

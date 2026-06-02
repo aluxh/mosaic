@@ -1,5 +1,6 @@
 export type Mode = 'celebration' | 'remembrance';
 export type PhotoSource = 'seed' | 'upload';
+export type FocalSource = 'unknown' | 'detected' | 'fallback' | 'manual';
 export type TransitionStyle = 'default' | 'cinematic';
 
 export interface EventRow {
@@ -25,6 +26,7 @@ export interface PhotoRow {
   hidden: number;
   focal_x: number;
   focal_y: number;
+  focal_source: FocalSource;
 }
 
 export interface MessageRow {
