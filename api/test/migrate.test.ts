@@ -60,4 +60,28 @@ describe('migrate', () => {
     expect(rows).toBe(1);
     db.close();
   });
+
+  it('adds messages.hidden defaulting to 0', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    const cols = db.prepare('PRAGMA table_info(messages)').all() as {
+      name: string;
+      dflt_value: string | null;
+    }[];
+    expect(cols.find((c) => c.name === 'hidden')?.dflt_value).toBe('0');
+    db.close();
+  });
+
+  it('records 004_message_curation.sql exactly once', () => {
+    const db = openDatabase(':memory:');
+    migrate(db);
+    migrate(db);
+    const n = (
+      db
+        .prepare("SELECT count(*) AS n FROM schema_migrations WHERE filename = '004_message_curation.sql'")
+        .get() as { n: number }
+    ).n;
+    expect(n).toBe(1);
+    db.close();
+  });
 });
