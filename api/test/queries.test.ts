@@ -178,9 +178,10 @@ describe('photos queries', () => {
     const rows = listPhotos(db, 'remembrance');
     expect(rows.find((r) => r.id === 'focal')).toMatchObject({ focal_x: 0.25, focal_y: 0.75 });
     expect(rows.find((r) => r.id === 'center')).toMatchObject({ focal_x: 0.5, focal_y: 0.5 });
+    expect(rows.find((r) => r.id === 'center')).toMatchObject({ focal_source: 'unknown' });
   });
 
-  it('updatePhotoFocalPoint updates only the matching event row', () => {
+  it('updatePhotoFocalPoint updates coords + source only for the matching event row', () => {
     insertPhoto(db, {
       id: 'p1',
       event_id: 'remembrance',
@@ -189,9 +190,30 @@ describe('photos queries', () => {
       credit: 'A',
       created_at: 1,
     });
-    expect(updatePhotoFocalPoint(db, 'celebration', 'p1', 0.2, 0.3)).toBe(false);
-    expect(updatePhotoFocalPoint(db, 'remembrance', 'p1', 0.2, 0.3)).toBe(true);
-    expect(listPhotos(db, 'remembrance')[0]).toMatchObject({ focal_x: 0.2, focal_y: 0.3 });
+    expect(updatePhotoFocalPoint(db, 'celebration', 'p1', 0.2, 0.3, 'manual')).toBe(false);
+    expect(updatePhotoFocalPoint(db, 'remembrance', 'p1', 0.2, 0.3, 'manual')).toBe(true);
+    expect(listPhotos(db, 'remembrance')[0]).toMatchObject({
+      focal_x: 0.2,
+      focal_y: 0.3,
+      focal_source: 'manual',
+    });
+  });
+
+  it('insertPhoto stores an explicit focal_source', () => {
+    insertPhoto(db, {
+      id: 'detected',
+      event_id: 'remembrance',
+      source: 'seed',
+      filename: 'd.jpg',
+      credit: 'Host',
+      created_at: 3,
+      focal_x: 0.1,
+      focal_y: 0.2,
+      focal_source: 'detected',
+    });
+    expect(listPhotos(db, 'remembrance').find((r) => r.id === 'detected')).toMatchObject({
+      focal_source: 'detected',
+    });
   });
 });
 

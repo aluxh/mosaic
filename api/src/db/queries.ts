@@ -1,5 +1,5 @@
 import type { DB } from './index.js';
-import type { EventRow, MessageRow, PhotoRow, PhotoSource } from '../types.js';
+import type { EventRow, MessageRow, PhotoRow, PhotoSource, FocalSource } from '../types.js';
 
 export function upsertEvent(db: DB, e: EventRow): void {
   db.prepare(
@@ -34,13 +34,19 @@ export interface InsertPhotoInput {
   created_at: number;
   focal_x?: number;
   focal_y?: number;
+  focal_source?: FocalSource;
 }
 
 export function insertPhoto(db: DB, p: InsertPhotoInput): PhotoRow {
-  const row = { ...p, focal_x: p.focal_x ?? 0.5, focal_y: p.focal_y ?? 0.5 };
+  const row = {
+    ...p,
+    focal_x: p.focal_x ?? 0.5,
+    focal_y: p.focal_y ?? 0.5,
+    focal_source: p.focal_source ?? 'unknown',
+  };
   db.prepare(
-    `INSERT INTO photos (id, event_id, source, filename, credit, created_at, focal_x, focal_y)
-     VALUES (@id, @event_id, @source, @filename, @credit, @created_at, @focal_x, @focal_y)`,
+    `INSERT INTO photos (id, event_id, source, filename, credit, created_at, focal_x, focal_y, focal_source)
+     VALUES (@id, @event_id, @source, @filename, @credit, @created_at, @focal_x, @focal_y, @focal_source)`,
   ).run(row);
   return { ...row, hidden: 0 } as PhotoRow;
 }
@@ -151,9 +157,10 @@ export function updatePhotoFocalPoint(
   photoId: string,
   focal_x: number,
   focal_y: number,
+  focal_source: FocalSource,
 ): boolean {
   const info = db
-    .prepare('UPDATE photos SET focal_x = ?, focal_y = ? WHERE id = ? AND event_id = ?')
-    .run(focal_x, focal_y, photoId, eventId);
+    .prepare('UPDATE photos SET focal_x = ?, focal_y = ?, focal_source = ? WHERE id = ? AND event_id = ?')
+    .run(focal_x, focal_y, focal_source, photoId, eventId);
   return info.changes > 0;
 }
