@@ -13,11 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       pkg-config python3 make g++ \
       libvips-dev libheif-plugin-libde265 \
       libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
+      chromium ffmpeg fonts-liberation \
     && rm -rf /var/lib/apt/lists/* \
     && npm install -g --no-audit --no-fund node-addon-api@^7 node-gyp
 
 ENV SHARP_FORCE_GLOBAL_LIBVIPS=1
 ENV NODE_PATH=/usr/local/lib/node_modules
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 COPY tsconfig.base.json ./
 COPY api/package.json api/package-lock.json* ./api/
