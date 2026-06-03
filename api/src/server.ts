@@ -22,6 +22,9 @@ import { registerPhotoRoutes } from './routes/photos.js';
 import { registerStreamRoutes } from './routes/stream.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerJoinRoute } from './routes/join.js';
+import { registerExportRoutes } from './routes/export.js';
+import { createExportJobManager } from './lib/exportJob.js';
+import { renderVideo } from './lib/exportVideo.js';
 import { createLiveUpdateBus } from './lib/liveUpdates.js';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), '..', 'data');
@@ -81,6 +84,12 @@ async function main() {
   registerMessageRoutes(app, db, requireToken, liveUpdates);
   registerPhotoRoutes(app, db, paths, requireToken, liveUpdates);
   registerAdminRoutes(app, db, paths, makeRequireAdmin(tokenSecret), liveUpdates);
+  const renderUrl = (process.env.RENDER_URL ?? 'http://web').replace(/\/$/, '');
+  const exportManager = createExportJobManager(renderVideo);
+  registerExportRoutes(app, makeRequireAdmin(tokenSecret), exportManager, {
+    renderUrl,
+    outDir: paths.dataDir,
+  });
 
   app.get('/health', async () => ({ ok: true }));
 
