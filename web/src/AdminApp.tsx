@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchEvents } from './lib/api';
 import {
   fetchAdminPhotos,
@@ -10,6 +10,9 @@ import {
   deleteMessage,
   updatePhotoFocal,
   recalculatePhotoFocal,
+  startExport,
+  getExportStatus,
+  type ExportStatus,
 } from './lib/adminApi';
 import { objectPositionForPhoto } from './lib/focalPoint';
 import { FocalEditor } from './components/FocalEditor';
@@ -28,6 +31,33 @@ export function AdminApp() {
   const [error, setError] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState<ExportStatus | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pollExport = useCallback(() => {
+    if (!event || !token) return;
+    getExportStatus(event.id, token)
+      .then((s) => {
+        setExportStatus(s);
+        if (s.status === 'running') pollRef.current = setTimeout(pollExport, 2000);
+      })
+      .catch((e) => setExportStatus({ status: 'error', error: String(e) }));
+  }, [event, token]);
+
+  useEffect(() => () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+  }, []);
+
+  const onExport = async () => {
+    if (!event || !token) return;
+    try {
+      const s = await startExport(event.id, token);
+      setExportStatus(s);
+      if (s.status === 'running') pollExport();
+    } catch (e) {
+      setExportStatus({ status: 'error', error: String(e) });
+    }
+  };
 
   useEffect(() => {
     document.body.classList.add('admin-scroll');
@@ -151,16 +181,25 @@ export function AdminApp() {
     <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
       <header className="mb-6 flex items-center justify-between gap-4">
         <h1 className="serif text-2xl">Curate the wall</h1>
-        <div className="flex rounded-full border border-neutral-700 overflow-hidden mono text-xs">
-          {(['default', 'cinematic'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => onStyle(s)}
-              className={`px-4 py-2 capitalize ${style === s ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-300'}`}
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onExport}
+            disabled={exportStatus?.status === 'running'}
+            className="px-4 py-2 rounded-full border border-neutral-700 mono text-xs hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {exportStatus?.status === 'running' ? 'Exporting…' : 'Export video'}
+          </button>
+          <div className="flex rounded-full border border-neutral-700 overflow-hidden mono text-xs">
+            {(['default', 'cinematic'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => onStyle(s)}
+                className={`px-4 py-2 capitalize ${style === s ? 'bg-neutral-100 text-neutral-900' : 'text-neutral-300'}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -180,6 +219,21 @@ export function AdminApp() {
       </div>
 
       {error && <p className="mb-4 text-sm text-amber-400">{error}</p>}
+      {exportStatus?.status === 'running' && (
+        <p className="mb-4 text-sm text-neutral-300 mono">
+          Rendering video… {exportStatus.framesDone ?? 0}/{exportStatus.totalFrames ?? 0} frames
+        </p>
+      )}
+      {exportStatus?.status === 'done' && exportStatus.outputUrl && (
+        <p className="mb-4 text-sm">
+          <a href={exportStatus.outputUrl} download className="text-emerald-400 underline">
+            Download video
+          </a>
+        </p>
+      )}
+      {exportStatus?.status === 'error' && (
+        <p className="mb-4 text-sm text-amber-400">Export failed: {exportStatus.error}</p>
+      )}
 
       {tab === 'photos' ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
