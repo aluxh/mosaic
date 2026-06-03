@@ -12,7 +12,8 @@ export function registerJoinRoute(
       ttlDays: opts.ttlDays,
       baseUrl: opts.baseUrl,
     });
-    const url = opts.baseUrl ? `${opts.baseUrl}/#t=${token}` : `/#t=${token}`;
+    const base = opts.baseUrl?.replace(/\/$/, '');
+    const url = base ? `${base}/#t=${token}` : `/#t=${token}`;
     return reply.redirect(url);
   });
 }

@@ -819,4 +819,20 @@ describe('GET /join', () => {
     expect(res.headers.location).toMatch(/^https:\/\/event\.example\.com\/#t=.+/);
     await joinApp.close();
   });
+
+  it('does not produce a double slash when BASE_URL has a trailing slash', async () => {
+    const joinApp = Fastify();
+    registerJoinRoute(joinApp, {
+      tokenSecret: TEST_SECRET,
+      eventId: 'remembrance',
+      ttlDays: 14,
+      baseUrl: 'https://event.example.com/',
+    });
+    await joinApp.ready();
+    const res = await joinApp.inject({ method: 'GET', url: '/join' });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toMatch(/^https:\/\/event\.example\.com\/#t=.+/);
+    expect(res.headers.location).not.toContain('//#t=');
+    await joinApp.close();
+  });
 });
