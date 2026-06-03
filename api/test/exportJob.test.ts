@@ -11,7 +11,7 @@ describe('createExportJobManager', () => {
   });
 
   it('start() transitions to running and invokes the runner with opts', () => {
-    const runner: RenderRunner = vi.fn(() => new Promise(() => {})); // never resolves
+    const runner = vi.fn<RenderRunner>(() => new Promise(() => {})); // never resolves
     const m = createExportJobManager(runner);
     const res = m.start(opts);
     expect(res.started).toBe(true);
