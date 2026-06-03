@@ -171,3 +171,39 @@ describe('AdminApp focal editing', () => {
     expect(screen.getByRole('img').style.objectPosition).toBe('10% 90%');
   });
 });
+
+describe('AdminApp video export', () => {
+  beforeEach(() => {
+    window.location.hash = '#t=admintok';
+    vi.spyOn(adminApi, 'fetchAdminPhotos').mockResolvedValue([photo('p1')]);
+    vi.spyOn(adminApi, 'fetchAdminMessages').mockResolvedValue([]);
+  });
+
+  it('starts a render and shows a download link when done', async () => {
+    vi.spyOn(adminApi, 'startExport').mockResolvedValue({
+      status: 'running', startedAt: 1, framesDone: 0, totalFrames: 100,
+    });
+    vi.spyOn(adminApi, 'getExportStatus').mockResolvedValue({
+      status: 'done', finishedAt: 2, outputUrl: '/data/exports/x.mp4',
+    });
+    render(<AdminApp />);
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: /export video/i }));
+    await waitFor(() => expect(adminApi.startExport).toHaveBeenCalledWith('remembrance', 'admintok'));
+    const link = await screen.findByRole('link', { name: /download video/i });
+    expect(link).toHaveAttribute('href', '/data/exports/x.mp4');
+  });
+
+  it('disables the button and shows progress while running', async () => {
+    vi.spyOn(adminApi, 'startExport').mockResolvedValue({
+      status: 'running', startedAt: 1, framesDone: 10, totalFrames: 100,
+    });
+    vi.spyOn(adminApi, 'getExportStatus').mockResolvedValue({
+      status: 'running', startedAt: 1, framesDone: 20, totalFrames: 100,
+    });
+    render(<AdminApp />);
+    await screen.findAllByRole('img');
+    fireEvent.click(screen.getByRole('button', { name: /export video/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /exporting/i })).toBeDisabled());
+  });
+});

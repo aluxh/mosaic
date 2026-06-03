@@ -138,3 +138,28 @@ export async function deleteMessage(eventId: string, messageId: string, token: s
   const url = `/api/events/${eventId}/admin/messages/${messageId}`;
   await ensureOk(await fetch(url, { method: 'DELETE', headers: authHeaders(token) }), url);
 }
+
+export interface ExportStatus {
+  status: 'idle' | 'running' | 'done' | 'error';
+  startedAt?: number;
+  framesDone?: number;
+  totalFrames?: number;
+  finishedAt?: number;
+  outputUrl?: string;
+  error?: string;
+}
+
+export async function startExport(eventId: string, token: string): Promise<ExportStatus> {
+  const url = `/api/events/${eventId}/admin/export`;
+  const res = await fetch(url, { method: 'POST', headers: authHeaders(token) });
+  // 409 means a render is already running — its body is a valid status, not an error.
+  if (res.status === 409) return (await res.json()) as ExportStatus;
+  await ensureOk(res, url);
+  return (await res.json()) as ExportStatus;
+}
+
+export async function getExportStatus(eventId: string, token: string): Promise<ExportStatus> {
+  const url = `/api/events/${eventId}/admin/export`;
+  const res = await ensureOk(await fetch(url, { headers: authHeaders(token) }), url);
+  return (await res.json()) as ExportStatus;
+}

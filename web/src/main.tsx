@@ -16,12 +16,14 @@ import '@fontsource/jetbrains-mono/latin-500.css';
 import './index.css';
 import { App } from './App';
 import { AdminApp } from './AdminApp';
+import { RenderApp } from './RenderApp';
 
-export function selectPage(pathname: string): ComponentType {
+export function selectPage(pathname: string, search = ''): ComponentType {
+  if (new URLSearchParams(search).has('render')) return RenderApp;
   return pathname === '/admin' ? AdminApp : App;
 }
 
-const Page = selectPage(window.location.pathname);
+const Page = selectPage(window.location.pathname, window.location.search);
 
 const root = document.getElementById('root');
 if (root) {
