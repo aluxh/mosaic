@@ -100,6 +100,12 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
     const frameCap = total + meta.fps * FRAME_CAP_SLACK_SECONDS;
     const budgetMs = 1000 / meta.fps;
 
+    // Freeze the page clock before the first capture. --run-all-compositor-stages-
+    // before-draw only draws in response to a virtual-time BeginFrame, so virtual
+    // time must be engaged before the first captureScreenshot or it deadlocks
+    // waiting for a frame that is never drawn.
+    await client.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
+
     const ff = spawn('ffmpeg', buildFfmpegArgs({ width: WIDTH, height: HEIGHT, fps: meta.fps, output }), {
       stdio: ['pipe', 'inherit', 'inherit'],
     });
