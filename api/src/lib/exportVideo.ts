@@ -62,21 +62,23 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
   const filename = `${eventId}-${timestamp(new Date())}.mp4`;
   const output = path.join(exportsDir, filename);
 
+  const log = (msg: string) => console.error(`[export ${eventId}] +${Date.now() - t0}ms ${msg}`);
+  const t0 = Date.now();
+  log('launching chromium');
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
     headless: true,
+    // Pipe Chromium's own stdout/stderr to the API logs so a compositor/GPU
+    // stall surfaces in `docker logs` instead of only as a CDP timeout.
+    dumpio: true,
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--hide-scrollbars',
       '--force-color-profile=srgb',
-      // Required for reliable screenshots while stepping virtual time: force the
-      // compositor to finish all stages before drawing, so captureScreenshot
-      // never hangs waiting for a deferred frame.
-      '--run-all-compositor-stages-before-draw',
-      '--disable-new-content-rendering-timeout',
     ],
   });
+  log(`launched ${await browser.version()}`);
 
   try {
     const page = await browser.newPage();
@@ -87,7 +89,9 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
     // then drive the capture with virtual time below. Setting a virtual-time
     // budget before navigation can exhaust mid-load and stall the page so the
     // load never completes, so we keep load and capture separate.
+    log('navigating');
     await page.goto(`${renderUrl}/?render=1`, { waitUntil: 'load' });
+    log('loaded; waiting for __mosaicRender');
     await page.waitForFunction('!!window.__mosaicRender', { timeout: 15000 });
 
     const meta = (await page.evaluate('window.__mosaicRender')) as {
@@ -95,10 +99,16 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
       sequenceLength: number;
       slideMs: number;
     };
+    log(`meta ${JSON.stringify(meta)}`);
     const total = totalFrames(meta);
     if (total === 0) throw new Error('nothing to export — this event has no photos yet');
     const frameCap = total + meta.fps * FRAME_CAP_SLACK_SECONDS;
     const budgetMs = 1000 / meta.fps;
+
+    // Freeze the page clock before the first capture so frame 0 is captured
+    // deterministically at virtual t=0; the loop then steps the clock per frame.
+    await client.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
+    log('virtual time paused; taking first screenshot');
 
     const ff = spawn('ffmpeg', buildFfmpegArgs({ width: WIDTH, height: HEIGHT, fps: meta.fps, output }), {
       stdio: ['pipe', 'inherit', 'inherit'],
@@ -112,6 +122,7 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
     let done = false;
     while (!done && frame < frameCap) {
       const shot = await page.screenshot({ type: 'png' });
+      if (frame === 0) log('first screenshot OK');
       if (!ff.stdin.write(shot)) {
         await new Promise((r) => ff.stdin.once('drain', r));
       }
