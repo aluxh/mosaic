@@ -65,7 +65,17 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--hide-scrollbars', '--force-color-profile=srgb'],
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--hide-scrollbars',
+      '--force-color-profile=srgb',
+      // Required for reliable screenshots while stepping virtual time: force the
+      // compositor to finish all stages before drawing, so captureScreenshot
+      // never hangs waiting for a deferred frame.
+      '--run-all-compositor-stages-before-draw',
+      '--disable-new-content-rendering-timeout',
+    ],
   });
 
   try {
@@ -73,12 +83,11 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
     await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
     const client = await page.target().createCDPSession();
 
-    // Let the page load (including data fetches) under virtual time, then pause.
-    await client.send('Emulation.setVirtualTimePolicy', {
-      policy: 'pauseIfNetworkFetchesPending',
-      budget: 5000,
-    });
-    await page.goto(`${renderUrl}/?render=1`, { waitUntil: 'networkidle0' });
+    // Load the page in real time first (a small, bounded amount of wall-clock),
+    // then drive the capture with virtual time below. Setting a virtual-time
+    // budget before navigation can exhaust mid-load and stall the page so the
+    // load never completes, so we keep load and capture separate.
+    await page.goto(`${renderUrl}/?render=1`, { waitUntil: 'load' });
     await page.waitForFunction('!!window.__mosaicRender', { timeout: 15000 });
 
     const meta = (await page.evaluate('window.__mosaicRender')) as {
