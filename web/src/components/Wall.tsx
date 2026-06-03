@@ -21,6 +21,7 @@ interface WallProps {
   mode: Mode;
   paused: boolean;
   event: Event | null;
+  renderMode?: boolean;
 }
 
 function SlideContent({
@@ -83,7 +84,7 @@ function SlideWrapper({
 }
 
 export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
-  { photos, messages, mode, paused, event }: WallProps,
+  { photos, messages, mode, paused, event, renderMode = false }: WallProps,
   ref,
 ) {
   const sequence = useMemo(
@@ -100,16 +101,37 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
   const fadeDur = cinematic
     ? (mode === 'celebration' ? 600 : 1200)
     : (mode === 'celebration' ? 700 : 1400);
+  const RENDER_FPS = 30;
 
   useEffect(() => {
     setIdx(0);
   }, [mode]);
 
   useEffect(() => {
-    if (paused || sequence.length === 0) return;
+    if (sequence.length === 0) return;
+    if (renderMode) {
+      // Play once: advance to the last slide, then mark done — never wrap.
+      if (idx >= sequence.length - 1) return;
+      const t = setTimeout(() => setIdx((i) => i + 1), slideMs);
+      return () => clearTimeout(t);
+    }
+    if (paused) return;
     const t = setTimeout(() => setIdx((i) => (i + 1) % sequence.length), slideMs);
     return () => clearTimeout(t);
-  }, [idx, paused, sequence.length, slideMs]);
+  }, [idx, paused, sequence.length, slideMs, renderMode]);
+
+  useEffect(() => {
+    if (!renderMode) return;
+    window.__mosaicDone = false;
+    if (sequence.length > 0) {
+      window.__mosaicRender = { fps: RENDER_FPS, sequenceLength: sequence.length, slideMs };
+      // Set a single timer to signal done after one full pass.
+      const t = setTimeout(() => {
+        window.__mosaicDone = true;
+      }, slideMs * sequence.length);
+      return () => clearTimeout(t);
+    }
+  }, [renderMode, sequence.length, slideMs]);
 
   useEffect(() => {
     if (idx >= sequence.length) setIdx(0);

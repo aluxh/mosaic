@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createRef, act } from 'react';
 import { render } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
@@ -236,5 +236,46 @@ describe('WallHandle ref navigation', () => {
     act(() => { ref.current!.prev(); });
     const penultLabel = `${String(total - 1).padStart(2, '0')} /`;
     expect(container.textContent).toContain(penultLabel);
+  });
+});
+
+describe('Wall render mode', () => {
+  const renderEvent: Event = {
+    id: 'e', mode: 'celebration', eyebrow: '', title: 'T', dateline: '', place: '',
+    invitation: '', brandSub: '', shortCode: 'X', transitionStyle: 'default',
+  };
+  const renderPhoto = (id: string): Photo => ({
+    id, eventId: 'e', source: 'seed', url: `/${id}.jpg`, url1024: `/${id}.jpg`,
+    url320: `/${id}.jpg`, credit: '', createdAt: 0, focalX: 0.5, focalY: 0.5,
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.__mosaicRender = undefined;
+    window.__mosaicDone = undefined;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('publishes the render contract and signals done after one pass (no loop)', () => {
+    const photos = [renderPhoto('a'), renderPhoto('b'), renderPhoto('c')];
+    const seq = buildSequence(photos, [], 'celebration', renderEvent);
+    expect(seq.length).toBeGreaterThan(1);
+
+    act(() => {
+      render(
+        <Wall photos={photos} messages={[]} mode="celebration" paused={false} event={renderEvent} renderMode />,
+      );
+    });
+
+    expect(window.__mosaicRender).toEqual({ fps: 30, sequenceLength: seq.length, slideMs: 4200 });
+    expect(window.__mosaicDone).toBe(false);
+
+    // Play through every slide (4200ms each) plus the final hold.
+    act(() => {
+      vi.advanceTimersByTime(4200 * (seq.length + 1));
+    });
+    expect(window.__mosaicDone).toBe(true);
   });
 });
