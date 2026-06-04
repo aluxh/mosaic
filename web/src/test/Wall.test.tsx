@@ -295,6 +295,34 @@ describe('Wall render mode', () => {
     expect(window.__mosaicDone).toBe(true);
   });
 
+  it('renderSlideMs overrides slideMs and __mosaicDone fires at the new duration', () => {
+    const photos = [renderPhoto('u'), renderPhoto('v'), renderPhoto('w')];
+    const seq = buildSequence(photos, [], 'celebration', renderEvent);
+    act(() => {
+      render(
+        <Wall photos={photos} messages={[]} mode="celebration" paused={false} event={renderEvent} renderMode renderSlideMs={9000} />,
+      );
+    });
+    // __mosaicRender should report the overridden slideMs
+    expect(window.__mosaicRender).toEqual({ fps: 30, sequenceLength: seq.length, slideMs: 9000 });
+    // done fires after 9000 * length, not 4200 * length
+    act(() => { vi.advanceTimersByTime(4200 * seq.length); });
+    expect(window.__mosaicDone).toBe(false);
+    act(() => { vi.advanceTimersByTime(9000 * seq.length); });
+    expect(window.__mosaicDone).toBe(true);
+  });
+
+  it('renderSlideMs has no effect when renderMode is false', () => {
+    const photos = [renderPhoto('d'), renderPhoto('e')];
+    act(() => {
+      render(
+        <Wall photos={photos} messages={[]} mode="celebration" paused={false} event={renderEvent} renderSlideMs={9000} />,
+      );
+    });
+    // renderMode=false, so __mosaicRender should not be set
+    expect(window.__mosaicRender).toBeUndefined();
+  });
+
   it('slow=1 (default) behaves identically to omitting slow', () => {
     const photos = [renderPhoto('p'), renderPhoto('q'), renderPhoto('r')];
     const seq = buildSequence(photos, [], 'celebration', renderEvent);

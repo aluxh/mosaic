@@ -26,6 +26,9 @@ interface WallProps {
   // motion timings are multiplied by this so a capture can run slower and be sped
   // back up for a higher effective frame rate. See the v0.9.5 spec.
   slow?: number;
+  // Per-export slide duration override (ms). Only used when renderMode=true.
+  // Overrides the hardcoded mode-based slideMs without affecting the live wall.
+  renderSlideMs?: number;
 }
 
 function SlideContent({
@@ -96,7 +99,7 @@ function SlideWrapper({
 }
 
 export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
-  { photos, messages, mode, paused, event, renderMode = false, slow = 1 }: WallProps,
+  { photos, messages, mode, paused, event, renderMode = false, slow = 1, renderSlideMs }: WallProps,
   ref,
 ) {
   const sequence = useMemo(
@@ -106,7 +109,8 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
   const [idx, setIdx] = useState(0);
 
   const cinematic = event?.transitionStyle === 'cinematic';
-  const slideMs = mode === 'celebration' ? 4200 : 7200;
+  const baseSlideMs = mode === 'celebration' ? 4200 : 7200;
+  const slideMs = (renderMode && renderSlideMs && renderSlideMs > 0) ? renderSlideMs : baseSlideMs;
   const enterClass = cinematic
     ? (mode === 'celebration' ? 'slide-cine-cele' : 'slide-cine-remb')
     : (mode === 'celebration' ? 'slide-cele' : 'slide-remb');

@@ -69,7 +69,8 @@ export async function renderVideoHiFi(
     eventId,
     slow = 1,
     fps = 30,
-  }: { renderUrl: string; outDir: string; eventId: string; slow?: number; fps?: number },
+    slideMs: slideMsOverride,
+  }: { renderUrl: string; outDir: string; eventId: string; slow?: number; fps?: number; slideMs?: number },
   onProgress: (framesDone: number, totalFrames: number) => void,
 ): Promise<{ outputUrl: string }> {
   const exportsDir = path.join(outDir, 'exports');
@@ -95,7 +96,9 @@ export async function renderVideoHiFi(
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
-    await page.goto(`${renderUrl}/?render=1&slow=${slow}`, { waitUntil: 'load' });
+    const renderParams = new URLSearchParams({ render: '1', slow: String(slow) });
+    if (slideMsOverride) renderParams.set('slideMs', String(slideMsOverride));
+    await page.goto(`${renderUrl}/?${renderParams}`, { waitUntil: 'load' });
     await page.waitForFunction('!!window.__mosaicRender', { timeout: 15000 });
 
     const meta = (await page.evaluate('window.__mosaicRender')) as {
