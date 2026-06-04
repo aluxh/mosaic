@@ -7,6 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "mint-token": "tsx src/cli/mintToken.ts",
+    "export-local": "tsx src/cli/exportLocal.ts",
     "build": "tsc --noEmit",
     "test": "vitest",
     "typecheck": "tsc --noEmit"

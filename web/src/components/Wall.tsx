@@ -22,18 +22,24 @@ interface WallProps {
   paused: boolean;
   event: Event | null;
   renderMode?: boolean;
+  // Time-scale for render-mode slow-motion capture (default 1 = real speed). All
+  // motion timings are multiplied by this so a capture can run slower and be sped
+  // back up for a higher effective frame rate. See the v0.9.5 spec.
+  slow?: number;
 }
 
 function SlideContent({
   slide,
   mode,
   slideMs,
+  slow,
 }: {
   slide: SlideSpec;
   mode: Mode;
   slideMs: number;
+  slow: number;
 }) {
-  const dur = slideMs + 1800;
+  const dur = (slideMs + 1800) * slow;
   switch (slide.type) {
     case 'title-card':
       return <TitleCardSlide slide={slide} mode={mode} />;
@@ -58,12 +64,16 @@ function SlideWrapper({
   slideMs,
   fadeDur,
   enterClass,
+  enterMs,
+  slow,
 }: {
   slide: SlideSpec;
   mode: Mode;
   slideMs: number;
   fadeDur: number;
   enterClass: string;
+  enterMs: number;
+  slow: number;
 }) {
   const [shown, setShown] = useState(false);
   useEffect(() => {
@@ -75,16 +85,18 @@ function SlideWrapper({
       className={`absolute inset-0 ${enterClass}`}
       style={{
         opacity: shown ? 1 : 0,
-        transition: `opacity ${fadeDur}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        transition: `opacity ${fadeDur * slow}ms cubic-bezier(0.22, 1, 0.36, 1)`,
+        // Scale the CSS enter animation (cinematic only) to match the slow factor.
+        ...(enterMs > 0 ? { animationDuration: `${enterMs * slow}ms` } : {}),
       }}
     >
-      <SlideContent slide={slide} mode={mode} slideMs={slideMs} />
+      <SlideContent slide={slide} mode={mode} slideMs={slideMs} slow={slow} />
     </div>
   );
 }
 
 export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
-  { photos, messages, mode, paused, event, renderMode = false }: WallProps,
+  { photos, messages, mode, paused, event, renderMode = false, slow = 1 }: WallProps,
   ref,
 ) {
   const sequence = useMemo(
@@ -101,6 +113,8 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
   const fadeDur = cinematic
     ? (mode === 'celebration' ? 600 : 1200)
     : (mode === 'celebration' ? 700 : 1400);
+  // Base duration of the cinematic slide-enter CSS animation (0 = no enter anim).
+  const enterMs = cinematic ? (mode === 'celebration' ? 600 : 1200) : 0;
   const RENDER_FPS = 30;
 
   useEffect(() => {
@@ -112,26 +126,26 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
     if (renderMode) {
       // Play once: advance to the last slide, then mark done — never wrap.
       if (idx >= sequence.length - 1) return;
-      const t = setTimeout(() => setIdx((i) => i + 1), slideMs);
+      const t = setTimeout(() => setIdx((i) => i + 1), slideMs * slow);
       return () => clearTimeout(t);
     }
     if (paused) return;
-    const t = setTimeout(() => setIdx((i) => (i + 1) % sequence.length), slideMs);
+    const t = setTimeout(() => setIdx((i) => (i + 1) % sequence.length), slideMs * slow);
     return () => clearTimeout(t);
-  }, [idx, paused, sequence.length, slideMs, renderMode]);
+  }, [idx, paused, sequence.length, slideMs, slow, renderMode]);
 
   useEffect(() => {
     if (!renderMode) return;
     window.__mosaicDone = false;
     if (sequence.length > 0) {
       window.__mosaicRender = { fps: RENDER_FPS, sequenceLength: sequence.length, slideMs };
-      // Set a single timer to signal done after one full pass.
+      // Set a single timer to signal done after one full (slow-scaled) pass.
       const t = setTimeout(() => {
         window.__mosaicDone = true;
-      }, slideMs * sequence.length);
+      }, slideMs * sequence.length * slow);
       return () => clearTimeout(t);
     }
-  }, [renderMode, sequence.length, slideMs]);
+  }, [renderMode, sequence.length, slideMs, slow]);
 
   useEffect(() => {
     if (idx >= sequence.length) setIdx(0);
@@ -161,12 +175,12 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
     if (!cur) return;
     if (lastSlideRef.current && lastSlideRef.current.id !== cur.id) {
       setPrevSlide(lastSlideRef.current);
-      const t = setTimeout(() => setPrevSlide(null), fadeDur + 80);
+      const t = setTimeout(() => setPrevSlide(null), fadeDur * slow + 80);
       lastSlideRef.current = cur;
       return () => clearTimeout(t);
     }
     lastSlideRef.current = cur;
-  }, [idx, sequence, fadeDur]);
+  }, [idx, sequence, fadeDur, slow]);
 
   if (sequence.length === 0) return null;
   const slide = sequence[idx]!;
@@ -175,7 +189,7 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
     <div className="absolute inset-0 overflow-hidden vignette bg-black">
       {prevSlide && prevSlide.id !== slide.id && (
         <div className="absolute inset-0" key={`prev-${prevSlide.id}`}>
-          <SlideContent slide={prevSlide} mode={mode} slideMs={slideMs} />
+          <SlideContent slide={prevSlide} mode={mode} slideMs={slideMs} slow={slow} />
         </div>
       )}
       <SlideWrapper
@@ -185,6 +199,8 @@ export const Wall = forwardRef<WallHandle, WallProps>(function Wall(
         slideMs={slideMs}
         fadeDur={fadeDur}
         enterClass={enterClass}
+        enterMs={enterMs}
+        slow={slow}
       />
       <ProgressBar
         slideMs={slideMs}

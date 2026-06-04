@@ -278,4 +278,33 @@ describe('Wall render mode', () => {
     });
     expect(window.__mosaicDone).toBe(true);
   });
+
+  it('slow=2 doubles the time before __mosaicDone fires', () => {
+    const photos = [renderPhoto('x'), renderPhoto('y'), renderPhoto('z')];
+    const seq = buildSequence(photos, [], 'celebration', renderEvent);
+    act(() => {
+      render(
+        <Wall photos={photos} messages={[]} mode="celebration" paused={false} event={renderEvent} renderMode slow={2} />,
+      );
+    });
+    // At 1× speed, done fires after slideMs * length. At 2× slow, done fires
+    // after slideMs * length * 2 — so it should NOT fire at 1× time.
+    act(() => { vi.advanceTimersByTime(4200 * seq.length); });
+    expect(window.__mosaicDone).toBe(false);
+    act(() => { vi.advanceTimersByTime(4200 * seq.length); });
+    expect(window.__mosaicDone).toBe(true);
+  });
+
+  it('slow=1 (default) behaves identically to omitting slow', () => {
+    const photos = [renderPhoto('p'), renderPhoto('q'), renderPhoto('r')];
+    const seq = buildSequence(photos, [], 'celebration', renderEvent);
+    act(() => {
+      render(
+        <Wall photos={photos} messages={[]} mode="celebration" paused={false} event={renderEvent} renderMode slow={1} />,
+      );
+    });
+    expect(window.__mosaicRender).toEqual({ fps: 30, sequenceLength: seq.length, slideMs: 4200 });
+    act(() => { vi.advanceTimersByTime(4200 * (seq.length + 1)); });
+    expect(window.__mosaicDone).toBe(true);
+  });
 });

@@ -18,59 +18,70 @@ export function totalFrames({
 }
 
 export function buildFfmpegArgs({
-  width,
-  height,
   fps,
   output,
 }: {
-  width: number;
-  height: number;
   fps: number;
   output: string;
 }): string[] {
+  // Real-time screencast frames arrive at a variable rate (Chromium emits one per
+  // composited change). -use_wallclock_as_timestamps stamps each by arrival time
+  // and the fps filter resamples to a constant <fps>, so output timing matches the
+  // real show and a slow host just duplicates frames instead of hanging.
   return [
     '-y',
     '-f', 'image2pipe',
-    '-framerate', String(fps),
+    '-use_wallclock_as_timestamps', '1',
     '-i', '-',
-    '-vf', `scale=${width}:${height}:flags=lanczos`,
+    '-vf', `fps=${fps}`,
     '-c:v', 'libx264',
+    '-preset', 'veryfast',
     '-pix_fmt', 'yuv420p',
     '-crf', '20',
-    '-r', String(fps),
     '-an',
     output,
   ];
 }
 
-const WIDTH = 1920;
-const HEIGHT = 1080;
-const FRAME_CAP_SLACK_SECONDS = 2; // hard stop a couple seconds past the expected end
-
-function timestamp(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+// Build an ffconcat manifest from an array of {file, tsMs} entries.
+// Each entry gets a `duration` of (next.tsMs - cur.tsMs) / 1000; the last
+// entry gets no duration (ffmpeg uses stream duration as fallback).
+export function buildConcatManifest(frames: { file: string; tsMs: number }[]): string {
+  const lines = ['ffconcat version 1.0'];
+  for (let i = 0; i < frames.length; i++) {
+    lines.push(`file '${frames[i]!.file}'`);
+    if (i + 1 < frames.length) {
+      const dur = (frames[i + 1]!.tsMs - frames[i]!.tsMs) / 1000;
+      lines.push(`duration ${dur.toFixed(6)}`);
+    }
+  }
+  return lines.join('\n') + '\n';
 }
 
-// Loads the real slideshow in `?render=1`, steps the page's virtual clock one
-// frame at a time, screenshots each frame, and pipes them to ffmpeg. Virtual
-// time decouples capture from wall-clock, so frames are deterministic and a slow
-// host cannot drop them.
-export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, onProgress) => {
+// Hi-fi two-phase capture for capable machines (export-local CLI).
+// Phase 1: screencast frames to a temp dir with no ffmpeg running (Chromium gets
+// full CPU → more unique frames). Phase 2: encode with setpts to restore real-time
+// speed and resample to the target fps. Cleans up the temp dir on success.
+export async function renderVideoHiFi(
+  {
+    renderUrl,
+    outDir,
+    eventId,
+    slow = 1,
+    fps = 30,
+  }: { renderUrl: string; outDir: string; eventId: string; slow?: number; fps?: number },
+  onProgress: (framesDone: number, totalFrames: number) => void,
+): Promise<{ outputUrl: string }> {
   const exportsDir = path.join(outDir, 'exports');
   fs.mkdirSync(exportsDir, { recursive: true });
   const filename = `${eventId}-${timestamp(new Date())}.mp4`;
   const output = path.join(exportsDir, filename);
+  const framesDir = path.join(exportsDir, `.frames-${Date.now()}`);
+  fs.mkdirSync(framesDir, { recursive: true });
 
-  const log = (msg: string) => console.error(`[export ${eventId}] +${Date.now() - t0}ms ${msg}`);
-  const t0 = Date.now();
-  log('launching chromium');
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
     headless: true,
-    // Pipe Chromium's own stdout/stderr to the API logs so a compositor/GPU
-    // stall surfaces in `docker logs` instead of only as a CDP timeout.
-    dumpio: true,
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
@@ -78,20 +89,119 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
       '--force-color-profile=srgb',
     ],
   });
-  log(`launched ${await browser.version()}`);
+
+  const frames: { file: string; tsMs: number }[] = [];
 
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
-    const client = await page.target().createCDPSession();
+    await page.goto(`${renderUrl}/?render=1&slow=${slow}`, { waitUntil: 'load' });
+    await page.waitForFunction('!!window.__mosaicRender', { timeout: 15000 });
 
-    // Load the page in real time first (a small, bounded amount of wall-clock),
-    // then drive the capture with virtual time below. Setting a virtual-time
-    // budget before navigation can exhaust mid-load and stall the page so the
-    // load never completes, so we keep load and capture separate.
-    log('navigating');
+    const meta = (await page.evaluate('window.__mosaicRender')) as {
+      fps: number; sequenceLength: number; slideMs: number;
+    };
+    const total = totalFrames(meta);
+    if (total === 0) throw new Error('nothing to export — this event has no photos yet');
+    const expectedMs = meta.slideMs * meta.sequenceLength * slow;
+
+    // Phase 1: capture — no ffmpeg, Chromium gets full CPU.
+    const client = await page.target().createCDPSession();
+    let frameIdx = 0;
+    client.on('Page.screencastFrame', async (e) => {
+      const file = path.join(framesDir, `f-${String(frameIdx).padStart(8, '0')}.jpg`);
+      fs.writeFileSync(file, Buffer.from(e.data, 'base64'));
+      frames.push({ file, tsMs: Date.now() });
+      frameIdx++;
+      try {
+        await client.send('Page.screencastFrameAck', { sessionId: e.sessionId });
+      } catch { /* tearing down */ }
+    });
+    await client.send('Page.startScreencast', { format: 'jpeg', quality: 85, everyNthFrame: 1 });
+
+    const captureStart = Date.now();
+    while (!(await page.evaluate('window.__mosaicDone'))) {
+      if (Date.now() - captureStart > expectedMs + SAFETY_SLACK_MS) break;
+      onProgress(Math.min(total, Math.round(((Date.now() - captureStart) / expectedMs) * total * 0.5)), total);
+      await new Promise((r) => setTimeout(r, DONE_POLL_MS));
+    }
+    await client.send('Page.stopScreencast');
+    onProgress(Math.floor(total * 0.5), total);
+
+    // Phase 2: encode from concat manifest.
+    const manifest = buildConcatManifest(frames);
+    const manifestPath = path.join(framesDir, 'manifest.txt');
+    fs.writeFileSync(manifestPath, manifest);
+
+    await new Promise<void>((resolve, reject) => {
+      const ff = spawn('ffmpeg', [
+        '-y',
+        '-f', 'concat', '-safe', '0',
+        '-i', manifestPath,
+        // setpts restores real-time speed (each timestamp ÷ slow)
+        '-vf', `setpts=PTS/${slow},fps=${fps}`,
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-pix_fmt', 'yuv420p',
+        '-crf', '20',
+        '-an',
+        output,
+      ], { stdio: ['ignore', 'inherit', 'inherit'] });
+      ff.on('close', (code) => {
+        onProgress(total, total);
+        code === 0 ? resolve() : reject(new Error(`ffmpeg exited with code ${code}`));
+      });
+      ff.on('error', reject);
+    });
+
+    fs.rmSync(framesDir, { recursive: true, force: true });
+    return { outputUrl: `/data/exports/${filename}` };
+  } finally {
+    await browser.close();
+    // Clean up temp dir on any error too (best effort).
+    fs.rmSync(framesDir, { recursive: true, force: true });
+  }
+}
+
+const WIDTH = 1920;
+const HEIGHT = 1080;
+const DONE_POLL_MS = 250;
+const SAFETY_SLACK_MS = 15_000; // stop a bit past the expected end if __mosaicDone never flips
+
+function timestamp(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+
+// Plays the real slideshow in `?render=1` in real time and records it with
+// Chromium's screencast (Page.startScreencast): Chromium streams composited JPEG
+// frames as the show plays, and ffmpeg stamps them by arrival time and resamples
+// to a constant fps. This replaced virtual-time stepping, which progressively
+// wedged Page.captureScreenshot mid-render and failed the export (see the
+// v0.9.4 spec). Real-time capture degrades gracefully on a slow host (fewer
+// unique frames, duplicated to hold the rate) instead of hanging.
+export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, onProgress) => {
+  const exportsDir = path.join(outDir, 'exports');
+  fs.mkdirSync(exportsDir, { recursive: true });
+  const filename = `${eventId}-${timestamp(new Date())}.mp4`;
+  const output = path.join(exportsDir, filename);
+
+  const browser = await puppeteer.launch({
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--hide-scrollbars',
+      '--force-color-profile=srgb',
+    ],
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: WIDTH, height: HEIGHT, deviceScaleFactor: 1 });
+
     await page.goto(`${renderUrl}/?render=1`, { waitUntil: 'load' });
-    log('loaded; waiting for __mosaicRender');
     await page.waitForFunction('!!window.__mosaicRender', { timeout: 15000 });
 
     const meta = (await page.evaluate('window.__mosaicRender')) as {
@@ -99,18 +209,11 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
       sequenceLength: number;
       slideMs: number;
     };
-    log(`meta ${JSON.stringify(meta)}`);
     const total = totalFrames(meta);
     if (total === 0) throw new Error('nothing to export — this event has no photos yet');
-    const frameCap = total + meta.fps * FRAME_CAP_SLACK_SECONDS;
-    const budgetMs = 1000 / meta.fps;
+    const expectedMs = meta.slideMs * meta.sequenceLength;
 
-    // Freeze the page clock before the first capture so frame 0 is captured
-    // deterministically at virtual t=0; the loop then steps the clock per frame.
-    await client.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
-    log('virtual time paused; taking first screenshot');
-
-    const ff = spawn('ffmpeg', buildFfmpegArgs({ width: WIDTH, height: HEIGHT, fps: meta.fps, output }), {
+    const ff = spawn('ffmpeg', buildFfmpegArgs({ fps: meta.fps, output }), {
       stdio: ['pipe', 'inherit', 'inherit'],
     });
     const ffDone = new Promise<void>((resolve, reject) => {
@@ -118,25 +221,32 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
       ff.on('error', reject);
     });
 
-    let frame = 0;
-    let done = false;
-    while (!done && frame < frameCap) {
-      const shot = await page.screenshot({ type: 'png' });
-      if (frame === 0) log('first screenshot OK');
-      if (!ff.stdin.write(shot)) {
+    const client = await page.target().createCDPSession();
+    // Pipe each composited frame to ffmpeg; ack only after backpressure clears so
+    // Chromium self-throttles and buffered frames stay bounded. CDP delivers
+    // frames in order and each write enqueues atomically, so the byte stream stays
+    // ordered even though handlers may overlap at the await.
+    client.on('Page.screencastFrame', async (e) => {
+      if (!ff.stdin.write(Buffer.from(e.data, 'base64'))) {
         await new Promise((r) => ff.stdin.once('drain', r));
       }
-      frame += 1;
-      onProgress(frame, total);
+      try {
+        await client.send('Page.screencastFrameAck', { sessionId: e.sessionId });
+      } catch {
+        // session is tearing down after the show ends; the frame is already written
+      }
+    });
+    await client.send('Page.startScreencast', { format: 'jpeg', quality: 90, everyNthFrame: 1 });
 
-      const expired = new Promise<void>((resolve) => {
-        client.once('Emulation.virtualTimeBudgetExpired', () => resolve());
-      });
-      await client.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: budgetMs });
-      await expired;
-      done = Boolean(await page.evaluate('window.__mosaicDone'));
+    const start = Date.now();
+    while (!(await page.evaluate('window.__mosaicDone'))) {
+      if (Date.now() - start > expectedMs + SAFETY_SLACK_MS) break;
+      onProgress(Math.min(total, Math.round(((Date.now() - start) / 1000) * meta.fps)), total);
+      await new Promise((r) => setTimeout(r, DONE_POLL_MS));
     }
 
+    await client.send('Page.stopScreencast');
+    onProgress(total, total);
     ff.stdin.end();
     await ffDone;
     return { outputUrl: `/data/exports/${filename}` };
