@@ -111,7 +111,9 @@ export async function renderVideoHiFi(
     client.on('Page.screencastFrame', async (e) => {
       const file = path.join(framesDir, `f-${String(frameIdx).padStart(8, '0')}.jpg`);
       fs.writeFileSync(file, Buffer.from(e.data, 'base64'));
-      frames.push({ file, tsMs: Date.now() });
+      // Use basename so ffmpeg resolves paths relative to the manifest's own
+      // directory (framesDir) rather than the process cwd — avoids path doubling.
+      frames.push({ file: path.basename(file), tsMs: Date.now() });
       frameIdx++;
       try {
         await client.send('Page.screencastFrameAck', { sessionId: e.sessionId });
