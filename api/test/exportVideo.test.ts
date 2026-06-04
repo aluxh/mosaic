@@ -15,11 +15,15 @@ describe('totalFrames', () => {
 });
 
 describe('buildFfmpegArgs', () => {
-  it('builds image2pipe → H.264 yuv420p args with the right resolution, fps, no audio, and output', () => {
-    const args = buildFfmpegArgs({ width: 1920, height: 1080, fps: 30, output: '/data/exports/out.mp4' });
+  it('builds image2pipe → H.264 yuv420p args with a fast preset, fps, no audio, and output', () => {
+    const args = buildFfmpegArgs({ fps: 30, output: '/data/exports/out.mp4' });
     expect(args).toContain('image2pipe');
-    expect(args.join(' ')).toContain('scale=1920:1080');
+    // No scale filter — screenshots are already the target size; the rescale
+    // was a no-op that burned CPU per frame.
+    expect(args.join(' ')).not.toContain('scale=');
     expect(args).toContain('libx264');
+    const preset = args.indexOf('-preset');
+    expect(args[preset + 1]).toBe('veryfast');
     const i = args.indexOf('-pix_fmt');
     expect(args[i + 1]).toBe('yuv420p');
     const r = args.indexOf('-r');

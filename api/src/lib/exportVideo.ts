@@ -18,23 +18,23 @@ export function totalFrames({
 }
 
 export function buildFfmpegArgs({
-  width,
-  height,
   fps,
   output,
 }: {
-  width: number;
-  height: number;
   fps: number;
   output: string;
 }): string[] {
+  // Screenshots are already WIDTH×HEIGHT, so there is no scale filter — the
+  // previous lanczos rescale was a no-op that burned CPU every frame. veryfast
+  // keeps CRF-20 quality while encoding several times faster than the default
+  // medium preset, which matters on the resource-constrained NAS.
   return [
     '-y',
     '-f', 'image2pipe',
     '-framerate', String(fps),
     '-i', '-',
-    '-vf', `scale=${width}:${height}:flags=lanczos`,
     '-c:v', 'libx264',
+    '-preset', 'veryfast',
     '-pix_fmt', 'yuv420p',
     '-crf', '20',
     '-r', String(fps),
@@ -68,6 +68,10 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
   const browser = await puppeteer.launch({
     executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
     headless: true,
+    // A single screenshot can briefly exceed the 180s default while ffmpeg
+    // contends for the NAS's CPU; give CDP commands generous slack so a slow
+    // (not stuck) capture does not abort the whole render.
+    protocolTimeout: 600_000,
     // Pipe Chromium's own stdout/stderr to the API logs so a compositor/GPU
     // stall surfaces in `docker logs` instead of only as a CDP timeout.
     dumpio: true,
@@ -110,7 +114,7 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
     await client.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
     log('virtual time paused; taking first screenshot');
 
-    const ff = spawn('ffmpeg', buildFfmpegArgs({ width: WIDTH, height: HEIGHT, fps: meta.fps, output }), {
+    const ff = spawn('ffmpeg', buildFfmpegArgs({ fps: meta.fps, output }), {
       stdio: ['pipe', 'inherit', 'inherit'],
     });
     const ffDone = new Promise<void>((resolve, reject) => {
@@ -128,6 +132,10 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
       }
       frame += 1;
       onProgress(frame, total);
+      if (frame % 300 === 0) {
+        const elapsedS = (Date.now() - t0) / 1000;
+        log(`captured ${frame}/${total} (${(frame / elapsedS).toFixed(2)} fps capture)`);
+      }
 
       const expired = new Promise<void>((resolve) => {
         client.once('Emulation.virtualTimeBudgetExpired', () => resolve());
