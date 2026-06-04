@@ -15,15 +15,19 @@ describe('totalFrames', () => {
 });
 
 describe('buildFfmpegArgs', () => {
-  it('builds image2pipe → H.264 yuv420p args with the right resolution, fps, no audio, and output', () => {
-    const args = buildFfmpegArgs({ width: 1920, height: 1080, fps: 30, output: '/data/exports/out.mp4' });
+  it('builds image2pipe → H.264 yuv420p args for real-time screencast frames', () => {
+    const args = buildFfmpegArgs({ fps: 30, output: '/data/exports/out.mp4' });
     expect(args).toContain('image2pipe');
-    expect(args.join(' ')).toContain('scale=1920:1080');
+    // Wallclock-stamp variable-rate screencast frames, then resample to constant fps.
+    const wc = args.indexOf('-use_wallclock_as_timestamps');
+    expect(args[wc + 1]).toBe('1');
+    const vf = args.indexOf('-vf');
+    expect(args[vf + 1]).toBe('fps=30');
     expect(args).toContain('libx264');
+    const preset = args.indexOf('-preset');
+    expect(args[preset + 1]).toBe('veryfast');
     const i = args.indexOf('-pix_fmt');
     expect(args[i + 1]).toBe('yuv420p');
-    const r = args.indexOf('-r');
-    expect(args[r + 1]).toBe('30');
     expect(args).toContain('-an');
     expect(args[args.length - 1]).toBe('/data/exports/out.mp4');
   });
