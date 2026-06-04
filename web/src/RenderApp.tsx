@@ -31,14 +31,17 @@ export function RenderApp() {
 
   // Slow-motion capture: ?slow=N stretches all motion N× so a real-time screencast
   // captures more unique frames, to be sped back up for a higher effective fps.
-  const slowParam = Number(new URLSearchParams(window.location.search).get('slow'));
+  const params = new URLSearchParams(window.location.search);
+  const slowParam = Number(params.get('slow'));
   const slow = Number.isFinite(slowParam) && slowParam > 0 ? slowParam : 1;
+  const slideMsParam = Number(params.get('slideMs'));
+  const renderSlideMs = Number.isFinite(slideMsParam) && slideMsParam > 0 ? slideMsParam : undefined;
 
   return (
     <div
       className={`fixed inset-0 ${event.mode === 'celebration' ? 'mode-celebration' : 'mode-remembrance'}`}
     >
-      <Wall photos={photos} messages={messages} mode={event.mode} paused={false} event={event} renderMode slow={slow} />
+      <Wall photos={photos} messages={messages} mode={event.mode} paused={false} event={event} renderMode slow={slow} renderSlideMs={renderSlideMs} />
     </div>
   );
 }
