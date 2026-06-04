@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { totalFrames, buildFfmpegArgs } from '../src/lib/exportVideo.js';
+import { totalFrames, buildFfmpegArgs, buildConcatManifest } from '../src/lib/exportVideo.js';
 
 describe('totalFrames', () => {
   it('returns 0 for an empty sequence', () => {
@@ -11,6 +11,33 @@ describe('totalFrames', () => {
     expect(totalFrames({ sequenceLength: 3, slideMs: 4200, fps: 30 })).toBe(378);
     // 9 slides * 7.2s = 64.8s * 30fps = 1944 frames
     expect(totalFrames({ sequenceLength: 9, slideMs: 7200, fps: 30 })).toBe(1944);
+  });
+});
+
+describe('buildConcatManifest', () => {
+  it('produces correct ffconcat header, file entries, and durations', () => {
+    const frames = [
+      { file: '/tmp/f-0.jpg', tsMs: 0 },
+      { file: '/tmp/f-1.jpg', tsMs: 100 },
+      { file: '/tmp/f-2.jpg', tsMs: 250 },
+    ];
+    const manifest = buildConcatManifest(frames);
+    expect(manifest).toContain('ffconcat version 1.0');
+    expect(manifest).toContain("file '/tmp/f-0.jpg'");
+    expect(manifest).toContain('duration 0.100000');  // 100ms between 0→1
+    expect(manifest).toContain("file '/tmp/f-1.jpg'");
+    expect(manifest).toContain('duration 0.150000');  // 150ms between 1→2
+    expect(manifest).toContain("file '/tmp/f-2.jpg'");
+    // Last entry has no duration line
+    const afterLast = manifest.slice(manifest.lastIndexOf("file '/tmp/f-2.jpg'") + 20);
+    expect(afterLast.trim()).toBe('');
+  });
+
+  it('returns a single-frame manifest with no duration', () => {
+    const manifest = buildConcatManifest([{ file: '/a.jpg', tsMs: 0 }]);
+    expect(manifest).toContain('ffconcat version 1.0');
+    expect(manifest).toContain("file '/a.jpg'");
+    expect(manifest).not.toContain('duration');
   });
 });
 
