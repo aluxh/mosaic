@@ -4,6 +4,25 @@ import path from 'node:path';
 import puppeteer from 'puppeteer-core';
 import type { RenderRunner } from './exportJob.js';
 
+const CHROME_CANDIDATES = [
+  '/usr/bin/google-chrome',
+  '/usr/bin/google-chrome-stable',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  '/snap/bin/chromium',
+];
+
+function findChromium(): string {
+  const fromEnv = process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (fromEnv) return fromEnv;
+  const found = CHROME_CANDIDATES.find((p) => fs.existsSync(p));
+  if (found) return found;
+  throw new Error(
+    `No Chrome/Chromium found. Set PUPPETEER_EXECUTABLE_PATH to your browser binary.\n` +
+    `Tried: ${CHROME_CANDIDATES.join(', ')}`,
+  );
+}
+
 export function totalFrames({
   sequenceLength,
   slideMs,
@@ -81,7 +100,7 @@ export async function renderVideoHiFi(
   fs.mkdirSync(framesDir, { recursive: true });
 
   const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
+    executablePath: findChromium(),
     headless: true,
     args: [
       '--no-sandbox',
@@ -192,7 +211,7 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
   const output = path.join(exportsDir, filename);
 
   const browser = await puppeteer.launch({
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH ?? '/usr/bin/chromium',
+    executablePath: findChromium(),
     headless: true,
     args: [
       '--no-sandbox',
