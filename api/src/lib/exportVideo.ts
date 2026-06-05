@@ -102,12 +102,7 @@ export async function renderVideoHiFi(
   const browser = await puppeteer.launch({
     executablePath: findChromium(),
     headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--hide-scrollbars',
-      '--force-color-profile=srgb',
-    ],
+    args: CHROMIUM_ARGS,
   });
 
   const frames: { file: string; tsMs: number }[] = [];
@@ -178,11 +173,9 @@ export async function renderVideoHiFi(
       ff.on('error', reject);
     });
 
-    fs.rmSync(framesDir, { recursive: true, force: true });
     return { outputUrl: `/data/exports/${filename}` };
   } finally {
     await browser.close();
-    // Clean up temp dir on any error too (best effort).
     fs.rmSync(framesDir, { recursive: true, force: true });
   }
 }
@@ -191,6 +184,13 @@ const WIDTH = 1920;
 const HEIGHT = 1080;
 const DONE_POLL_MS = 250;
 const SAFETY_SLACK_MS = 15_000; // stop a bit past the expected end if __mosaicDone never flips
+
+const CHROMIUM_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--hide-scrollbars',
+  '--force-color-profile=srgb',
+];
 
 function timestamp(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -213,12 +213,7 @@ export const renderVideo: RenderRunner = async ({ renderUrl, outDir, eventId }, 
   const browser = await puppeteer.launch({
     executablePath: findChromium(),
     headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-dev-shm-usage',
-      '--hide-scrollbars',
-      '--force-color-profile=srgb',
-    ],
+    args: CHROMIUM_ARGS,
   });
 
   try {
