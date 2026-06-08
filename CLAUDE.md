@@ -3,6 +3,12 @@
 These rules apply to every change in this repository. They override default
 behavior. Read them at the start of every session.
 
+> **Session context & preferences:** at the start of every session, read
+> `../mosaic-specs/agent-context.md` (private repo) for who you're working
+> with, collaboration preferences, and a map of where durable facts live.
+> The current shipped version is injected live by a `SessionStart` hook —
+> do not rely on any hardcoded version.
+
 ## 1. Spec-Driven Development — NO code without a spec
 
 - The high-level roadmap and all feature specs live in the private sibling
